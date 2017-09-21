@@ -1,0 +1,144 @@
+# options(error = myerror)
+check_duplicated_rows <- function(dtf,
+                                  by_cols = c('variant_id', 'transcript_id')) {
+  # dtf[which(duplicated(dtf, by = by_cols))]
+  lapply(1:nrow(dtf), function(i) {
+      idx <- apply(dtf, 1, function(x) which(sum(x != dtf[i,]) < 1))
+      dtf[c(i, idx), ]
+  })
+}
+
+
+#' Merge (left-join) files and run diagnostics
+#'
+#' @param check_row_count deprecated
+controlled_merge <- function(f_dtf, a_dtf,
+                             by_cols = c('variant_id', 'transcript_id'),
+                             cartesian = F,
+                             check_row_count = T) {
+  if (is.null(a_dtf) || nrow(a_dtf) == 0) {
+    return(f_dtf)
+  }
+
+  if (check_merge_dups(a_dtf)) {
+    mymessage('controlled_merge', 'detected merge dups in annotated df',
+              f = stop)
+  }
+
+  missing_f <- setdiff(by_cols, colnames(f_dtf))
+  if (length(missing_f) > 0) {
+    mymessage('controlled_merge', sprintf('missing cols in f_dtf: %s',
+                                          paste(missing_f, collapse = ', ')),
+              f = stop)
+  }
+  missing_a <- setdiff(by_cols, colnames(a_dtf))
+  if (length(missing_a) > 0) {
+    mymessage('controlled_merge', sprintf('missing cols in a_dtf: %s',
+                                          paste(missing_a, collapse = ', ')),
+              f = stop)
+  }
+
+
+  ## 2017-05-25 17:24 Prevent merge duplications by selecting rel cols only
+  sel_cols <- union(by_cols, setdiff(colnames(a_dtf), colnames(f_dtf)))
+  a_dtf <- setDT(a_dtf)[, sel_cols, with = F]
+  setkeyv(a_dtf, by_cols)
+
+  ## Merge source and annotation df
+  dtf_merged <- tryCatch(merge(f_dtf, unique(a_dtf, by = by_cols), all.x = T,
+                               all.y = F, by = by_cols,
+                               allow.cartesian = cartesian),
+                         error = function(e) {
+                           print(e)
+                           browser()
+                           intersect(colnames(dtf_merged), colnames(a_dtf))
+                         })
+
+  ## Check column count and names
+  if (check_merge_dups(dtf_merged)) {
+    mymessage('controlled_merge', 'merge dups detected post-merging',
+              f = stop)
+  }
+
+  if (cartesian == F) {
+    if (nrow(dtf_merged) != nrow(f_dtf)) {
+      browser()
+      # dup_variant_id <- dtf_merged[which(duplicated(dtf_merged,
+      #                                               by = 'variant_id')),
+      #                          variant_id]
+      # a_dtf[variant_id == dup_variant_id]
+    }
+  }
+
+  if (all(colnames(a_dtf) %nin% colnames(dtf_merged))) {
+     mymessage('controlled_merge', 'annotation columns absent, merging failed',
+               f = stop)
+  }
+
+  keyv <- key(f_dtf)
+  setkeyv(dtf_merged, keyv)
+  return(dtf_merged)
+}
+
+
+#' Check whether merge did not result in bloat columns
+#'
+#' Check whether column names contain ".x" or ".y"
+#'
+#'
+check_merge_dups <- function(dtf) {
+  dups <- grep(pattern = '\\.[x|y]$', x = colnames(dtf), perl = T, value = T)
+  if (length(dups) > 0) {
+    message(paste(sys.calls(), collapse = '\n'))
+    warning('Found duplicated colnames, revise code: ',
+            paste(dups, collapse = ', '))
+    return(T)
+  } else {
+    return(F)
+  }
+}
+
+
+#' Check whether merged columns are identical
+#'
+#' For when suffering from QC-paranoia
+#'
+#'
+verify_merge_equality <- function(merged) {
+  dup_cn_x <- grep('.*\\.x$', colnames(merged), value = T)
+  if (length(dup_cn_x) == 0) {
+    message('no merge columns detected')
+    return(NA)
+  }
+  dup_cn_y <- grep('.*\\.y$', colnames(merged), value = T)
+  dup_cn_clean <- gsub('\\.y$', '', dup_cn_y)
+  ret_val <- lapply(setNames(1:length(dup_cn_x), dup_cn_clean),
+                    function(idx)
+        setDT(merged)[, all(get(dup_cn_x[[idx]]) == get(dup_cn_y[[idx]]))]
+  )
+  if (all(unlist(ret_val))) {
+    return(TRUE)
+  } else {
+    return(lapply(auto_name(names(ret_val))[!unlist(ret_val)],
+                  function(varn) {
+      merged[get(sprintf('%s.x', varn)) != get(sprintf('%s.y', varn))]
+    }))
+  }
+  return(ret_val)
+}
+
+
+#' Clean up duplicated columns due to merging
+#'
+#'
+clean_dup_cols <- function(dtf) {
+  dup_cn_y <- grep('.*\\.y$', colnames(dtf), value = T)
+  dup_cn_x <- grep('.*\\.x$', colnames(dtf), value = T)
+  if (length(dup_cn_y) == 0 || length(dup_cn_x) == 0) return(dtf)
+  dup_cn <- gsub('\\.x$', '', dup_cn_x)
+  dtf[, (dup_cn_y) := rep(NULL, length(dup_cn_y))]
+  setnames(dtf, dup_cn_x, dup_cn)
+  return(dtf)
+}
+
+
