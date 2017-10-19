@@ -6,11 +6,10 @@
 #'   Default is 'jaccard' for Jaccard matrix, alternatively use 'corrob'
 #'   for corroboration matrix (FALSE)
 overlap_analysis <- function(m, method = 'jaccard') {
-  library(Matrix)
   method <- match.arg(method, c('jaccard', 'corroboration'))
 
   ## total counts for each column (filter)
-  m <- as.matrix(m)
+  m <- Matrix::as.matrix(m)
   CS <- colSums(m, na.rm = T)
 
   ## Jaccard formula: #common / (#i + #j - #common)
@@ -57,5 +56,6 @@ plot.set_matrix <- function(o_mat) {
   rownames(o_mat) <- simple_cap(rownames(o_mat))
   txt_mat <- matrix(as.character(round(o_mat, 2)), nrow = nrow(o_mat))
   ## TODO when NMF 0.23 is released, move labels to left and top
-  NMF::aheatmap(o_mat, txt = txt_mat, Rowv = 1:nrow(o_mat), Colv = 1:ncol(o_mat))
+  NMF::aheatmap(o_mat, txt = txt_mat, 
+                Rowv = 1:nrow(o_mat), Colv = 1:ncol(o_mat))
 }
