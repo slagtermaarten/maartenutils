@@ -9,5 +9,5 @@ Depends: R (>= 3.0.0),
 License: BSD
 LazyData: true
 Imports: doMC, gdata, ggthemes, ggplot2 (>= 2.2.0), grid, gridExtra, plyr,
-  tools
+  tools, Matrix, NMF
 Suggests: testthat

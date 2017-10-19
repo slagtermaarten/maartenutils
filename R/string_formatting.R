@@ -45,3 +45,17 @@ format_frac <- function(num = 5, denom = 10, msg = NULL) {
           num, denom, num/denom)
 }
 # format_frac(4, 6)
+
+
+#' Append duplicated entries in vector with appendix label
+#'
+#'
+index_duplicates <- function(vec = c(1, 2, 2, 3)) {
+  dup_entries <- unique(vec[which(duplicated(vec))])
+  for (f in dup_entries) {
+    no_dups <- sum(vec == f, na.rm = T)
+    vec[vec == f] <- sprintf('%s.%d', as.character(f), 1:no_dups)
+  }
+  return(vec)
+}
+stopifnot(sum(duplicated(index_duplicates())) == 0)
