@@ -32,3 +32,16 @@ simple_cap <- function(x, split_regex = ' |_|,',
 stopifnot(simple_cap('mtorc1 kras Kras1,Pam50') == 'mTORC1 KRAS KRAS1 PAM50')
 # simple_cap('homo sapiens in laudanum erat')
 # simple_cap('in horto sedent')
+
+
+#' Compute frac and format into pretty string
+#'
+#'
+format_frac <- function(num = 5, denom = 10, msg = NULL) {
+  stopifnot(class(num) %in% c('integer', 'double', 'numeric'))
+  stopifnot(class(denom) %in% c('integer', 'double', 'numeric'))
+  stopifnot(denom > 0)
+  sprintf('%s%d/%d (%.2f)', ifelse(is.null(msg), '', sprintf('%s: ', msg)), 
+          num, denom, num/denom)
+}
+# format_frac(4, 6)
