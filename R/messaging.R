@@ -19,7 +19,7 @@ mywarning = function(instance = '', msg = '', ...) {
 
 #' Messaging function, format message using sprintf
 #'
-#' 
+#'
 messagef <- function(msg, ...) {
   message(sprintf(msg, ...))
 }
@@ -27,7 +27,7 @@ messagef <- function(msg, ...) {
 
 #' Warning function, format message using sprintf
 #'
-#' 
+#'
 warningf <- function(msg, ...) {
   warning(sprintf(msg, ...))
 }
@@ -35,9 +35,7 @@ warningf <- function(msg, ...) {
 
 #' Stop function, format message using sprintf
 #'
-#' 
+#'
 stopf <- function(msg, ...) {
   stop(sprintf(msg, ...))
 }
-
-
