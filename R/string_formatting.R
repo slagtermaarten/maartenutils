@@ -59,3 +59,39 @@ index_duplicates <- function(vec = c(1, 2, 2, 3)) {
   return(vec)
 }
 stopifnot(sum(duplicated(index_duplicates())) == 0)
+
+
+#' Fancy scientific string formatting of exponents
+#'
+#'
+fancy_scientific <- function(l, digits = 3) {
+  if (is.null(l)) return(NULL)
+  if (is.na(l)) return(NA)
+  l <- signif(l, digits = digits)
+  ret_val <- sapply(l, function(li) {
+    ## We don't need scientific notation for numbers between .1 and 10
+    if (abs(as.numeric(li)) > .1 && abs(as.numeric(li)) <= 10) {
+      return(as.expression(li))
+    }
+    # turn in to character string in scientific notation
+    li <- format(li, scientific = TRUE)
+    # quote the part before the exponent to keep all the digits
+    li <- gsub("^(.*)e", "'\\1'e", li)
+    # turn the 'e+' into plotmath format
+    li <- gsub("e", "%*%10^", li)
+    ## Some more edits
+    ## We don't need to multiply by one
+    l_e <- gsub("'1'%\\*%", "", li)
+    ## Nor we do need to exponentiate numbers by the first power
+    # l_e <- gsub("(.*)\\^\\+01", "\\1^", l_e)
+    ## Let's replace numbers to their zeroth power to just one
+    l_e <- gsub("\\d+\\^00", "1^", l_e)
+    l_e <- gsub("%\\*%(.*)\\^\\+00", "", l_e)
+    l_e <- gsub("\\^\\+(\\d+)", "^\\1", l_e)
+    # return this as an expression
+    parse(text=l_e)
+  })
+  return(ret_val)
+}
+
+

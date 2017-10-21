@@ -6,28 +6,28 @@ theme_ms <- function(base_size = global_base_size, base_family = 'sans',
   l_theme <-
     ggplot2::theme_grey(base_size = base_size, base_family = base_family) +
     ggplot2::theme(
-      rect = element_rect(fill = 'white', linetype = 0, color = NULL),
-      text = element_text(size = base_size, family = base_family),
-      title = element_text(hjust = 0.0),
-      axis.text = element_text(size = rel(0.8)),
-      plot.title = element_text(size = rel(.9), hjust = .5),
-      axis.title = element_text(size = rel(1.0), hjust = .5),
+      rect = ggplot2::element_rect(fill = 'white', linetype = 0, color = NULL),
+      text = ggplot2::element_text(size = base_size, family = base_family),
+      title = ggplot2::element_text(hjust = 0.0),
+      axis.text = ggplot2::element_text(size = rel(0.8)),
+      plot.title = ggplot2::element_text(size = rel(.9), hjust = .5),
+      axis.title = ggplot2::element_text(size = rel(1.0), hjust = .5),
       legend.position = legend_pos,
-      legend.key.size = unit(10, 'mm'),
-      legend.title = element_text(size = rel(0.7), hjust = .5),
-      legend.margin = margin(1, 1, 1, 1, unit = 'mm'),
-      legend.spacing = unit(10, 'mm'),
-      panel.spacing = unit(.1, "lines"),
-      strip.background = element_rect(fill='#F0F8FF', size = 0.5),
-      panel.background = element_blank(),
-      panel.grid.major = element_line(colour='grey95', size=0.5),
-      panel.grid.minor = element_line(colour='grey97', size=0.4),
-      panel.border = element_rect(colour = 'grey20', fill=NA, size=1),
+      legend.key.size = grid::unit(10, 'mm'),
+      legend.title = ggplot2::element_text(size = rel(0.7), hjust = .5),
+      legend.margin = ggplot2::margin(1, 1, 1, 1, unit = 'mm'),
+      legend.spacing = grid::unit(10, 'mm'),
+      panel.spacing = grid::unit(.1, "lines"),
+      strip.background = ggplot2::element_rect(fill='#F0F8FF', size = 0.5),
+      panel.background = ggplot2::element_blank(),
+      panel.grid.major = ggplot2::element_line(colour='grey95', size=0.5),
+      panel.grid.minor = ggplot2::element_line(colour='grey97', size=0.4),
+      panel.border = ggplot2::element_rect(colour = 'grey20', fill=NA, size=1),
       ## Top, right, bottom, left
-      plot.margin = unit(c(.2, .2, .2, .2), 'cm'),
-      strip.text = element_text(size = rel(1.0)),
-      legend.key = element_rect(fill = '#FFFFFF00'),
-      legend.text = element_text(size = rel(.8)))
+      plot.margin = grid::unit(c(.2, .2, .2, .2), 'cm'),
+      strip.text = ggplot2::element_text(size = rel(1.0)),
+      legend.key = ggplot2::element_rect(fill = '#FFFFFF00'),
+      legend.text = ggplot2::element_text(size = rel(.8)))
 
   l_theme <- l_theme + rotate_x_labels(rotate_labels)
   l_theme <- l_theme + ggplot2::theme(...)
@@ -42,6 +42,7 @@ angle_adj_just <- list('90' = list('h' = 1, 'v' = .5),
                        '45' = list('h' = 1, 'v' = 1),
                        '30' = list('h' = 1, 'v' = 1),
                        '0'  = list('h' = .5, 'v' = 1))
+
 
 rotate_x_labels <- function(rotate_labels) {
   if (is.na(rotate_labels) || is.null(rotate_labels)) {
@@ -61,7 +62,6 @@ gg_legend_alpha_cancel <-
 
 gg_remove_x_labels <- ggplot2::theme(axis.ticks.x = ggplot2::element_blank(),
                             axis.text.x = ggplot2::element_blank())
-
 
 
 #' Wrapper around ggplot2::ggsave
@@ -130,6 +130,7 @@ to_g <- function(li, ...) {
   }
 }
 
+
 normalize_grob_widths <- function(plots, norm_func = 'max', ...) {
   norm_func <- match.arg(arg = norm_func, choices = c('max', 'min'))
   if (norm_func == 'max') f <- grid::unit.pmax
@@ -193,4 +194,79 @@ set_panel_size <- function(p=NULL, g=ggplotGrob(p),
                                   unitTo = 'in', valueOnly = TRUE))
 
   invisible(g)
+}
+
+
+transparent_legend <- ggplot2::theme(
+  legend.background = ggplot2::element_rect(fill = 'transparent'),
+  legend.key = ggplot2::element_rect(fill = 'transparent', 
+                                     color = 'transparent')
+)
+
+
+transparent_plot <- ggplot2::theme(
+  panel.background = ggplot2::element_rect(fill = 'transparent', 
+                                           color = 'transparent')
+)
+
+
+
+#' Wrapper around cowplot::plot_grid()
+#'
+#'
+plot_panel <- function(plots, constant = 'ccf_table',
+                       opts = default_opts, h = 10, w = 5,
+                       normalize_grob_widths = T,
+                       normalize_grob_heights = F,
+                       save_bool = F, ncol = min(3, length(plots)),
+                       labels = LETTERS[seq_along(plots)], 
+                       label_size = global_label_size,
+                       ...) {
+  if (normalize_grob_widths) {
+    plots <- normalize_grob_widths(plots)
+  }
+  if (normalize_grob_heights) {
+    plots <- normalize_grob_heights(plots)
+  }
+
+  panel <- do.call(cowplot::plot_grid,
+                   c(plots, list('label_size' = label_size, 
+                                 'labels' = labels, 'ncol' = ncol, ...)))
+
+  if (save_bool) {
+    fn <- gen_parmscan_img_fn(constant = constant, opts)
+    w_ggsave(fn, h = h, w = w, img_folder = file.path(img_loc, 'parmscan'))
+  }
+  return(panel)
+}
+
+
+#' Plot panel off ggplots and define layout of plots with matrix
+#'
+#'
+plot_panel_layout <- function(plots, offs = grid::unit(.35, 'cm'), 
+                              filename = NULL, 
+                              layout_mat = t(matrix(1:length(plots))),
+                              widths = rep(1, ncol(layout_mat)),
+                              heights = rep(1, nrow(layout_mat)),
+                              w = 8.5, h = 15) {
+  ## Add labels to ggplot grobs
+  plots <- to_g(plots)
+  gs <- lapply(seq_along(plots), function(ii) 
+    grid::grobTree(plots[[ii]], 
+                   grid::textGrob(LETTERS[ii], x = offs, 
+                                  y = grid::unit(1, 'npc') - offs, 
+                                  gp=grid::gpar(fontsize = global_label_size, 
+                                                col='black', 
+                                                fontface = 'bold'))))
+  p <- gridExtra::arrangeGrob(grobs = gs, layout_matrix = layout_mat, 
+                              widths = widths, heights = heights)
+  if (!is.null(filename)) {
+    pdf(filename, width = w/2.54, height = h/2.54)
+    grid.draw(p)
+    dev.off()
+  } else {
+    grid.draw(p)
+  }
+  return(p)
 }
