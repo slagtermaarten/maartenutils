@@ -1,3 +1,60 @@
+#' Another ggplot theme
+#'
+#'
+theme_ms <- function(base_size = global_base_size, base_family = 'sans',
+                     rotate_labels = NA, legend_pos = 'bottom', ...) {
+  l_theme <-
+    ggplot2::theme_grey(base_size = base_size, base_family = base_family) +
+    ggplot2::theme(
+      rect = element_rect(fill = 'white', linetype = 0, color = NULL),
+      text = element_text(size = base_size, family = base_family),
+      title = element_text(hjust = 0.0),
+      axis.text = element_text(size = rel(0.8)),
+      plot.title = element_text(size = rel(.9), hjust = .5),
+      axis.title = element_text(size = rel(1.0), hjust = .5),
+      legend.position = legend_pos,
+      legend.key.size = unit(10, 'mm'),
+      legend.title = element_text(size = rel(0.7), hjust = .5),
+      legend.margin = margin(1, 1, 1, 1, unit = 'mm'),
+      legend.spacing = unit(10, 'mm'),
+      panel.spacing = unit(.1, "lines"),
+      strip.background = element_rect(fill='#F0F8FF', size = 0.5),
+      panel.background = element_blank(),
+      panel.grid.major = element_line(colour='grey95', size=0.5),
+      panel.grid.minor = element_line(colour='grey97', size=0.4),
+      panel.border = element_rect(colour = 'grey20', fill=NA, size=1),
+      ## Top, right, bottom, left
+      plot.margin = unit(c(.2, .2, .2, .2), 'cm'),
+      strip.text = element_text(size = rel(1.0)),
+      legend.key = element_rect(fill = '#FFFFFF00'),
+      legend.text = element_text(size = rel(.8)))
+
+  l_theme <- l_theme + rotate_x_labels(rotate_labels)
+  l_theme <- l_theme + ggplot2::theme(...)
+  return(l_theme)
+}
+
+
+#' Angle specific justification in geom text
+#'
+#'
+angle_adj_just <- list('90' = list('h' = 1, 'v' = .5),
+                       '45' = list('h' = 1, 'v' = 1),
+                       '30' = list('h' = 1, 'v' = 1),
+                       '0'  = list('h' = .5, 'v' = 1))
+
+rotate_x_labels <- function(rotate_labels) {
+  if (is.na(rotate_labels) || is.null(rotate_labels)) {
+    return(ggplot2::theme())
+  }
+  rot_str <- as.character(rotate_labels)
+  ggplot2::theme(axis.text.x =
+    ggplot2::element_text(angle = rotate_labels,
+                          hjust = angle_adj_just[[rot_str]][['h']],
+                          vjust = angle_adj_just[[rot_str]][['v']]))
+}
+
+
 gg_legend_alpha_cancel <-
   ggplot2::guides(fill = ggplot2::guide_legend(override.aes = list(alpha = 1)),
          colour = ggplot2::guide_legend(override.aes = list(alpha = 1)))
