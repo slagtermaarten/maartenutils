@@ -270,3 +270,78 @@ plot_panel_layout <- function(plots, offs = grid::unit(.35, 'cm'),
   }
   return(p)
 }
+
+
+#' Lighten color
+#'
+#'
+lighten <- function(color, factor=1.4) {
+  col <- col2rgb(color)
+  col <- col*factor
+  col <- rgb(t(as.matrix(apply(col, 1, function(x) if (x > 255) 255 else x))),
+             maxColorValue=255)
+  return(auto_name(col))
+}
+
+
+#' Darken color
+#'
+#'
+darken <- function(color, factor=1.4) {
+  col <- col2rgb(color)
+  col <- col/factor
+  col <- rgb(t(as.matrix(apply(col, 1, function(x) if (x < 0) 0 else x))),
+             maxColorValue=255)
+  return(auto_name(col))
+}
+
+
+#' Plot a color palette
+#'
+#' @param cols character vector of (potentially named) colors
+plot_palette <- function(cols) {
+  plot(NA, xlim=c(0, 1), ylim=c(0, length(cols)))
+  for (i in 1:length(cols)) {
+    polygon(y=c(i-1, i, i, i-1), x=c(0, 0, 1, 1), col = cols[i])
+    if (!is.null(names(cols))) {
+      text(x = .5, y = i-.5, labels = names(cols)[i])
+    }
+  }
+}
+
+
+#' Interpolate between color palettes
+#'
+#'
+gen_color_palette <- function(name = 'Set1', n = 30L, prims = NA) {
+  name <- match.arg(name, c('Set1', 'Spectral', 'Dark2'))
+  if (is.na(prims)) {
+    prims <- switch(name, 'Set1' = 5L, 'Dark2' = 8L, 'Spectral' = 6L)
+  }
+  pal <- colorRampPalette(
+           RColorBrewer::brewer.pal(name = name, n = prims), 
+           space = 'Lab')
+  return(pal)
+}
+
+
+#' Create vector of colors from color palette
+#'
+#'
+#' @param n Amount of primary colors to take from palette
+#' @param prims Amount of primary colors to use from palette
+gen_color_vector <- function(name = "Set1", n = 30, prims = NA) {
+  pal <- gen_color_palette(name = name, n = n, prims = prims)
+  pal(n)
+}
+
+                                       
+#' Desaturate colors
+#'
+#'
+adjust_colors <- function(cols, sat=1, brightness = 1.2) {
+  X <- diag(c(1, sat, brightness)) %*% rgb2hsv(col2rgb(cols))
+  hsv(pmin(X[1, ], 1), 
+      pmin(X[2, ], 1), 
+      pmin(X[3, ], 1))
+}
