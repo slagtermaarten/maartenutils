@@ -210,7 +210,6 @@ transparent_plot <- ggplot2::theme(
 )
 
 
-
 #' Wrapper around cowplot::plot_grid()
 #'
 #'
@@ -243,7 +242,7 @@ plot_panel <- function(plots, constant = 'ccf_table',
 
 #' Plot panel off ggplots and define layout of plots with matrix
 #'
-#'
+#' @export
 plot_panel_layout <- function(plots, offs = grid::unit(.35, 'cm'), 
                               filename = NULL, 
                               layout_mat = t(matrix(1:length(plots))),
@@ -274,7 +273,7 @@ plot_panel_layout <- function(plots, offs = grid::unit(.35, 'cm'),
 
 #' Lighten color
 #'
-#'
+#' @export
 lighten <- function(color, factor=1.4) {
   col <- col2rgb(color)
   col <- col*factor
@@ -286,7 +285,7 @@ lighten <- function(color, factor=1.4) {
 
 #' Darken color
 #'
-#'
+#' @export
 darken <- function(color, factor=1.4) {
   col <- col2rgb(color)
   col <- col/factor
@@ -296,13 +295,14 @@ darken <- function(color, factor=1.4) {
 }
 
 
-#' Plot a color palette
+#' Plot a color palette to inspect its colors
 #'
 #' @param cols character vector of (potentially named) colors
+#' @export
 plot_palette <- function(cols) {
-  plot(NA, xlim=c(0, 1), ylim=c(0, length(cols)))
+  plot(NA, xlim = c(0, 1), ylim = c(0, length(cols)), axes = F)
   for (i in 1:length(cols)) {
-    polygon(y=c(i-1, i, i, i-1), x=c(0, 0, 1, 1), col = cols[i])
+    polygon(y = c(i-1, i, i, i-1), x = c(0, 0, 1, 1), col = cols[i])
     if (!is.null(names(cols))) {
       text(x = .5, y = i-.5, labels = names(cols)[i])
     }
@@ -312,25 +312,32 @@ plot_palette <- function(cols) {
 
 #' Interpolate between color palettes
 #'
-#'
+#' @export
 gen_color_palette <- function(name = 'Set1', n = 30L, prims = NA) {
-  name <- match.arg(name, c('Set1', 'Spectral', 'Dark2'))
-  if (is.na(prims)) {
-    prims <- switch(name, 'Set1' = 5L, 'Dark2' = 8L, 'Spectral' = 6L)
+  palette_prims <- c('Set1' = 5L, 'Dark2' = 8L, 'Spectral' = 6L, 
+                     'FantasticFox' = 5L, 'Zissou' = 5L, 'Cavalcanti' = 5L, 
+                     'Royal1' = 4L, 
+                     'Darjeeling' = 5L)
+  name <- match.arg(name, names(palette_prims))
+  if (is.na(prims)) { prims <- palette_prims[name] }
+  if (name %in% names(palette_prims)[1:3]) {
+    pal <- RColorBrewer::brewer.pal(name = name, n = prims)
+  } else {
+    ## Palette must be one of Wes Anderson's
+    pal <- wesanderson::wes_palette(name = name, n = prims, type = 'continuous')
   }
-  pal <- colorRampPalette(
-           RColorBrewer::brewer.pal(name = name, n = prims), 
-           space = 'Lab')
-  return(pal)
+  ramp <- colorRampPalette(pal, space = 'Lab')
+  return(ramp)
 }
 
 
 #' Create vector of colors from color palette
 #'
-#'
 #' @param n Amount of primary colors to take from palette
 #' @param prims Amount of primary colors to use from palette
-gen_color_vector <- function(name = "Set1", n = 30, prims = NA) {
+#'
+#' @export
+gen_color_vector <- function(name = 'Set1', n = 30, prims = NA) {
   pal <- gen_color_palette(name = name, n = n, prims = prims)
   pal(n)
 }
@@ -338,7 +345,7 @@ gen_color_vector <- function(name = "Set1", n = 30, prims = NA) {
                                        
 #' Desaturate colors
 #'
-#'
+#' @export
 adjust_colors <- function(cols, sat=1, brightness = 1.2) {
   X <- diag(c(1, sat, brightness)) %*% rgb2hsv(col2rgb(cols))
   hsv(pmin(X[1, ], 1), 
