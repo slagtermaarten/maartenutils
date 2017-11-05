@@ -94,7 +94,9 @@ bisect_from <- function(li, val = 'TCGA-R6-A6Y0') {
 #'
 #' This was written for debugging purposes, one can and should define column
 #' types (if necessary) during data reading using data.table::fread()
-set_dt_types <- function(fh, col_classes) {
+set_dt_types <- function(fh, col_classes = NULL) {
+  if (is.null(col_classes)) return(fh)
+
   cp <- col_classes[colnames(fh)] %>% { .[!is.na(.)] }
   fh[, (names(cp[cp == 'character'])) := lapply(.SD, as.character),
      .SDcols = names(cp[cp == 'character'])]
@@ -167,7 +169,7 @@ message_fn_size <- function(fn) {
 #' fread does
 #'
 w_fread <- function(fn, col_classes = NULL, use_fread = T,
-                    verbose = debug_mode,
+                    verbose = T,
                     normalize_colnames = F) {
   if (file_name_checks(fn)) {
     if (!is.na(fn)) {
@@ -181,17 +183,21 @@ w_fread <- function(fn, col_classes = NULL, use_fread = T,
     mymessage('w_fread', message_fn_size(fn))
   }
 
+  header <- fread(fn, header = T, nrows = 1, verbose = debug_mode)
+  ## If the previous failed, return NULL now
+  if (is.null(header)) return(NULL)
+
+  if (!is.null(col_classes)) {
+    cols_absent <- base::setdiff(colnames(header), names(col_classes))
+    if (length(cols_absent) > 0 && verbose) {
+      mymessage('w_fread',
+                sprintf('in %s, no specification for column(s): %s',
+                        fn, paste(cols_absent, collapse = ", ")))
+    }
+  }
+
   if (use_fread == T) {
-    header <- fread(fn, header = T, nrows = 1, verbose = debug_mode)
-    ## If the previous failed, return NULL now
-    if (is.null(header)) return(NULL)
     if (!is.null(col_classes)) {
-      cols_absent <- base::setdiff(colnames(header), names(col_classes))
-      if (length(cols_absent) > 0 && verbose) {
-        mymessage('w_fread',
-                  sprintf('in %s, no specification for column(s): %s',
-                          fn, paste(cols_absent, collapse = ", ")))
-      }
       cols_present <- base::intersect(colnames(header), names(col_classes))
       fh <- data.table::fread(fn, header = T,
                               colClasses = col_classes[cols_present],
@@ -202,10 +208,13 @@ w_fread <- function(fn, col_classes = NULL, use_fread = T,
   } else {
     ext <- tools::file_ext(fn)
     fh <- as.data.table(switch(ext,
-                 "tsv" = read.delim(fn),
-                 "csv" = read.csv(fn)))
-    fh <- suppressWarnings(set_dt_types(fh, col_classes))
+                               "tsv" = read.delim(fn),
+                               "csv" = read.csv(fn)))
+    if (!is.null(col_classes)) {
+      fh <- suppressWarnings(set_dt_types(fh, col_classes))
+    }
   }
+
 
   if (normalize_colnames) {
     fh <- normalize_colnames(fh)
