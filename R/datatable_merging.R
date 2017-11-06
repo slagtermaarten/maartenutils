@@ -25,6 +25,10 @@ controlled_merge <- function(f_dtf, a_dtf,
               f = stop)
   }
 
+  if (is.null(by_cols) || is.na(by_cols)) {
+    by_cols <- intersect(colnames(f_dtf), colnames(a_dtf))
+  }
+
   missing_f <- setdiff(by_cols, colnames(f_dtf))
   if (length(missing_f) > 0) {
     mymessage('controlled_merge', sprintf('missing cols in f_dtf: %s',
@@ -38,6 +42,34 @@ controlled_merge <- function(f_dtf, a_dtf,
               f = stop)
   }
 
+  ## 2017-11-06 08:40 Check col types of merge cols
+  a_types <- unlist(a_dtf[, lapply(.SD, class), .SDcols = by_cols])
+  f_types <- unlist(f_dtf[, lapply(.SD, class), .SDcols = by_cols])
+
+  ## This kind of a mismatch is harmless, coercion should happen correctly
+  char_types <- (a_types == 'character' | f_types == 'character')
+
+  if (!all(a_types[!char_types] == f_types[!char_types])) {
+    non_identical <- names(a_types)[which(a_types != f_types)]
+    type_vec <- sprintf('%s (%s/%s)', non_identical, a_types[non_identical], 
+                        f_types[non_identical])
+
+    mymessage('controlled_merge', 
+              sprintf('merge cols not of same type: %s', 
+                      paste(type_vec, collapse = ', ')),
+              f = stop)
+  }
+
+  ## Merging on factors can be problematic when the levels aren't explicitly
+  ## defined by the user
+  ## Merge cols are of same type so we only have to test one
+  if (any(a_types == 'factor')) {
+    factor_types <- names(a_types)[a_types == 'factor']
+    mymessage('controlled_merge', 
+              sprintf('merge cols of type factor: %s', 
+                      paste(factor_types, collapse = ', ')),
+              f = warning)
+  }
 
   ## 2017-05-25 17:24 Prevent merge duplications by selecting rel cols only
   sel_cols <- union(by_cols, setdiff(colnames(a_dtf), colnames(f_dtf)))
