@@ -50,8 +50,12 @@ perm_browser <- function(donor_id = '') {
 #' Set names of vector to actual values in vector
 #'
 #'
-auto_name <- function(vec) {
-  setNames(vec, vec)
+auto_name <- function(vec, force = T) {
+  if (force) {
+    return(setNames(setNames(vec, NULL), as.character(vec)))
+  } else {
+    return(setNames(vec, as.character(vec)))
+  }
 }
 
 
@@ -96,7 +100,9 @@ bisect_from <- function(li, val = 'TCGA-R6-A6Y0') {
 #' types (if necessary) during data reading using data.table::fread()
 set_dt_types <- function(fh, col_classes = NULL) {
   if (is.null(col_classes)) return(fh)
+  if (null_dat(fh)) return(NULL)
 
+  ## Filter down col_classes to relevant col classes
   cp <- col_classes[colnames(fh)] %>% { .[!is.na(.)] }
   fh[, (names(cp[cp == 'character'])) := lapply(.SD, as.character),
      .SDcols = names(cp[cp == 'character'])]
@@ -141,6 +147,8 @@ normalize_colnames <- function(dtf) {
   if ('data.table' %in% class(dtf)) {
     setnames(dtf, tolower(colnames(dtf)))
     setnames(dtf, gsub(" ", "_", colnames(dtf)))
+    ## Get rid of terminating dots
+    setnames(dtf, gsub("\\.$", "", colnames(dtf)))
   }
   return(dtf)
 }
@@ -170,6 +178,7 @@ message_fn_size <- function(fn) {
 #'
 w_fread <- function(fn, col_classes = NULL, use_fread = T,
                     verbose = T,
+                    root_folder = path.expand('~/antigenic_space'),
                     normalize_colnames = F) {
   if (file_name_checks(fn)) {
     if (!is.na(fn)) {
@@ -185,7 +194,11 @@ w_fread <- function(fn, col_classes = NULL, use_fread = T,
 
   header <- fread(fn, header = T, nrows = 1, verbose = debug_mode)
   ## If the previous failed, return NULL now
-  if (is.null(header)) return(NULL)
+  if (is.null(header)) {
+    mymessage('w_fread', sprintf('could not read header of file %s',
+                                 strip_root(fn, root = root_folder)))
+    return(NULL)
+  }
 
   if (!is.null(col_classes)) {
     cols_absent <- base::setdiff(colnames(header), names(col_classes))
@@ -208,6 +221,7 @@ w_fread <- function(fn, col_classes = NULL, use_fread = T,
   } else {
     ext <- tools::file_ext(fn)
     fh <- as.data.table(switch(ext,
+                               "tsv" = read.delim(fn),
                                "tsv" = read.delim(fn),
                                "csv" = read.csv(fn)))
     if (!is.null(col_classes)) {

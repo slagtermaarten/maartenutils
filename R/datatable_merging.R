@@ -11,13 +11,18 @@ check_duplicated_rows <- function(dtf,
 
 #' Merge (left-join) files and run diagnostics
 #'
-#' @param check_row_count deprecated
+#' @param maintain_attr attribute names to safeguard during merging
 controlled_merge <- function(f_dtf, a_dtf,
                              by_cols = c('variant_id', 'transcript_id'),
                              cartesian = F,
-                             check_row_count = T) {
+                             maintain_attr = NULL) {
   if (is.null(a_dtf) || nrow(a_dtf) == 0) {
     return(f_dtf)
+  }
+
+  if (!is.null(maintain_attr)) {
+    maintain_attr <- maintain_attr[maintain_attr %in% names(attributes(f_dtf))]
+    attr_backup <- lapply(auto_name(maintain_attr), function(a) attr(f_dtf, a))
   }
 
   if (check_merge_dups(a_dtf)) {
@@ -63,12 +68,19 @@ controlled_merge <- function(f_dtf, a_dtf,
   ## Merging on factors can be problematic when the levels aren't explicitly
   ## defined by the user
   ## Merge cols are of same type so we only have to test one
-  if (any(a_types == 'factor')) {
-    factor_types <- names(a_types)[a_types == 'factor']
-    mymessage('controlled_merge', 
-              sprintf('merge cols of type factor: %s', 
-                      paste(factor_types, collapse = ', ')),
-              f = warning)
+  if (any(a_types == 'factor') || any(f_types == 'factor')) {
+    if (F) {
+      mymessage('controlled_merge', 
+                sprintf('merge cols of type factor: %s', 
+                        paste(factor_types, collapse = ', ')),
+                f = warning)
+    }
+    for (coln in names(f_types)[f_types == 'factor']) {
+      f_dtf[, (coln) := as.character(get(coln))]
+    }
+    for (coln in names(a_types)[a_types == 'factor']) {
+      a_dtf[, (coln) := as.character(get(coln))]
+    }
   }
 
   ## 2017-05-25 17:24 Prevent merge duplications by selecting rel cols only
@@ -105,6 +117,12 @@ controlled_merge <- function(f_dtf, a_dtf,
   if (all(colnames(a_dtf) %nin% colnames(dtf_merged))) {
      mymessage('controlled_merge', 'annotation columns absent, merging failed',
                f = stop)
+  }
+
+  if (!is.null(maintain_attr) && length(maintain_attr) > 0) {
+    for (a in names(attr_backup)) {
+      attr(dtf_merged, a) <- attr_backup[[a]]
+    }
   }
 
   keyv <- key(f_dtf)
