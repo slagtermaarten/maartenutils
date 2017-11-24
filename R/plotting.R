@@ -64,18 +64,34 @@ gg_remove_x_labels <- ggplot2::theme(axis.ticks.x = ggplot2::element_blank(),
                             axis.text.x = ggplot2::element_blank())
 
 
+find_img_dir <- function(img_dir_pat = 'img|fig') {
+  cur_dir <- getwd()
+  sub_dirs <- list.dirs(cur_dir, full.names = F)
+  fig_cand_dirs <- grep(img_dir_pat, sub_dirs, value = T)
+  fig_cand_dirs <- grep('cache', fig_cand_dirs, invert = T, value = T)
+  if (length(fig_cand_dirs) == 0) {
+    return(getwd())
+  } else if (length(fig_cand_dirs) == 1) {
+    return(fig_cand_dirs)
+  } else {
+    messagef('multiple fig dirs found in WD: %s, returning WD.', getwd())
+    return(getwd())
+  }
+}
+
+
 #' Wrapper around ggplot2::ggsave
 #'
 #' @param golden_ratio whether to apply golden ratio, if yes user only has to
 #' supply height \code{h} and corresponding width will be set automatically
 #' @param fn filename without extension - .png and .pdf files will be generated
 w_ggsave <- function(fn, plot = last_plot(), plot_ratio = 'norm', h = 16, w = NA,
-                     img_folder = fasanalysis::img_loc, units = 'cm', 
+                     img_folder = find_img_dir('img|fig'), units = 'cm',
                      filetypes = c('pdf'), ...) {
 
-  plot_ratio <- match.arg(plot_ratio, c('golden_ratio', 'square', 'norm'), 
+  plot_ratio <- match.arg(plot_ratio, c('golden_ratio', 'square', 'norm'),
                           several.ok = F)
-  filetypes = match.arg(filetypes, choices = c('png', 'pdf', 'rds', 'grob'), 
+  filetypes = match.arg(filetypes, choices = c('png', 'pdf', 'rds', 'grob'),
                         several.ok = T)
   if (!dir.exists(img_folder)) dir.create(img_folder)
   lheight = h
@@ -109,7 +125,7 @@ w_ggsave <- function(fn, plot = last_plot(), plot_ratio = 'norm', h = 16, w = NA
 }
 
 
-#' Extract gtable from ggplot object 
+#' Extract gtable from ggplot object
 #'
 #'
 to_g <- function(li, ...) {
@@ -158,11 +174,11 @@ normalize_grob_heights <- function(plots, ...) {
 #' @param p ggplot object
 #' @param g ggplotGrob
 #' @param file file name to save result to. File is saved using \code{ggplot2::ggsave()}
-#' @param margin \code{grid::unit()} object indicating margin size 
+#' @param margin \code{grid::unit()} object indicating margin size
 #' @param width \code{grid::unit()} object indicating panel width
 #' @param height \code{grid::unit()} object indicating panel height
 #' @return gtable object
-set_panel_size <- function(p=NULL, g=ggplotGrob(p), 
+set_panel_size <- function(p=NULL, g=ggplotGrob(p),
                            file=NULL,
                            margin = unit(1,'mm'),
                            width=unit(4, 'cm'),
@@ -199,13 +215,13 @@ set_panel_size <- function(p=NULL, g=ggplotGrob(p),
 
 transparent_legend <- ggplot2::theme(
   legend.background = ggplot2::element_rect(fill = 'transparent'),
-  legend.key = ggplot2::element_rect(fill = 'transparent', 
+  legend.key = ggplot2::element_rect(fill = 'transparent',
                                      color = 'transparent')
 )
 
 
 transparent_plot <- ggplot2::theme(
-  panel.background = ggplot2::element_rect(fill = 'transparent', 
+  panel.background = ggplot2::element_rect(fill = 'transparent',
                                            color = 'transparent')
 )
 
@@ -218,7 +234,7 @@ plot_panel <- function(plots, constant = 'ccf_table',
                        normalize_grob_widths = T,
                        normalize_grob_heights = F,
                        save_bool = F, ncol = min(3, length(plots)),
-                       labels = LETTERS[seq_along(plots)], 
+                       labels = LETTERS[seq_along(plots)],
                        label_size = global_label_size,
                        ...) {
   if (normalize_grob_widths) {
@@ -229,7 +245,7 @@ plot_panel <- function(plots, constant = 'ccf_table',
   }
 
   panel <- do.call(cowplot::plot_grid,
-                   c(plots, list('label_size' = label_size, 
+                   c(plots, list('label_size' = label_size,
                                  'labels' = labels, 'ncol' = ncol, ...)))
 
   if (save_bool) {
@@ -243,22 +259,22 @@ plot_panel <- function(plots, constant = 'ccf_table',
 #' Plot panel off ggplots and define layout of plots with matrix
 #'
 #' @export
-plot_panel_layout <- function(plots, offs = grid::unit(.35, 'cm'), 
-                              filename = NULL, 
+plot_panel_layout <- function(plots, offs = grid::unit(.35, 'cm'),
+                              filename = NULL,
                               layout_mat = t(matrix(1:length(plots))),
                               widths = rep(1, ncol(layout_mat)),
                               heights = rep(1, nrow(layout_mat)),
                               w = 8.5, h = 15) {
   ## Add labels to ggplot grobs
   plots <- to_g(plots)
-  gs <- lapply(seq_along(plots), function(ii) 
-    grid::grobTree(plots[[ii]], 
-                   grid::textGrob(LETTERS[ii], x = offs, 
-                                  y = grid::unit(1, 'npc') - offs, 
-                                  gp=grid::gpar(fontsize = global_label_size, 
-                                                col='black', 
+  gs <- lapply(seq_along(plots), function(ii)
+    grid::grobTree(plots[[ii]],
+                   grid::textGrob(LETTERS[ii], x = offs,
+                                  y = grid::unit(1, 'npc') - offs,
+                                  gp=grid::gpar(fontsize = global_label_size,
+                                                col='black',
                                                 fontface = 'bold'))))
-  p <- gridExtra::arrangeGrob(grobs = gs, layout_matrix = layout_mat, 
+  p <- gridExtra::arrangeGrob(grobs = gs, layout_matrix = layout_mat,
                               widths = widths, heights = heights)
   if (!is.null(filename)) {
     pdf(filename, width = w/2.54, height = h/2.54)
@@ -298,25 +314,31 @@ darken <- function(color, factor=1.4) {
 #' Plot a color palette to inspect its colors
 #'
 #' @param cols character vector of (potentially named) colors
+#' @return invisibly, plotting the color palette using R base graphics
+#'
 #' @export
 plot_palette <- function(cols) {
-  plot(NA, xlim = c(0, 1), ylim = c(0, length(cols)), axes = F)
+  plot(NA, xlim = c(0, 1), ylim = c(0, length(cols)), axes = F,
+       xlab = '', ylab = '')
   for (i in 1:length(cols)) {
     polygon(y = c(i-1, i, i, i-1), x = c(0, 0, 1, 1), col = cols[i])
     if (!is.null(names(cols))) {
       text(x = .5, y = i-.5, labels = names(cols)[i])
     }
   }
+  invisible()
 }
+color_vector.plot <- plot_palette
 
 
 #' Interpolate between color palettes
 #'
+#' @return a color ramp
 #' @export
 gen_color_palette <- function(name = 'Set1', n = 30L, prims = NA) {
-  palette_prims <- c('Set1' = 5L, 'Dark2' = 8L, 'Spectral' = 6L, 
-                     'FantasticFox' = 5L, 'Zissou' = 5L, 'Cavalcanti' = 5L, 
-                     'Royal1' = 4L, 
+  palette_prims <- c('Set1' = 5L, 'Dark2' = 8L, 'Spectral' = 6L,
+                     'FantasticFox' = 5L, 'Zissou' = 5L, 'Cavalcanti' = 5L,
+                     'Royal1' = 4L,
                      'Darjeeling' = 5L)
   name <- match.arg(name, names(palette_prims))
   if (is.na(prims)) { prims <- palette_prims[name] }
@@ -336,19 +358,21 @@ gen_color_palette <- function(name = 'Set1', n = 30L, prims = NA) {
 #' @param n Amount of primary colors to take from palette
 #' @param prims Amount of primary colors to use from palette
 #'
+#' @return a vector of color names
 #' @export
-gen_color_vector <- function(name = 'Set1', n = 30, prims = NA) {
-  pal <- gen_color_palette(name = name, n = n, prims = prims)
-  pal(n)
+gen_color_vector <- function(name = 'Spectral', n = 30, prims = NA) {
+  pal <- gen_color_palette(name = name, n = n, prims = prims)(n)
+  class(pal) <- c('color_vector', class(pal))
+  return(pal)
 }
 
-                                       
+
 #' Desaturate colors
 #'
 #' @export
 adjust_colors <- function(cols, sat=1, brightness = 1.2) {
   X <- diag(c(1, sat, brightness)) %*% rgb2hsv(col2rgb(cols))
-  hsv(pmin(X[1, ], 1), 
-      pmin(X[2, ], 1), 
+  hsv(pmin(X[1, ], 1),
+      pmin(X[2, ], 1),
       pmin(X[3, ], 1))
 }
