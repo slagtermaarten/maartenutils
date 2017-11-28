@@ -238,10 +238,24 @@ w_fread <- function(fn, col_classes = NULL, use_fread = T,
 }
 
 
+#' Check whether file is write accessible to current user
+#'
+#'
+write_accessible <- function(filename) {
+  file.access(filename, mode = 2) 
+}
+
+
 #' Set sensible defaults for \code{write.table}
+#'
+#'
 write_tsv <- function(dat, output_file) {
+  if (write_accessible(output_file)) {
     write.table(dat, file = output_file, quote = FALSE,
                 sep = '\t', row.names = FALSE)
+  } else {
+    mymessage('write_tsv', sprintf('cannot write to %f', output_file))
+  }
 }
 
 
