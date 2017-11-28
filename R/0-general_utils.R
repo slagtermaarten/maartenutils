@@ -238,10 +238,27 @@ w_fread <- function(fn, col_classes = NULL, use_fread = T,
 }
 
 
+#' Check whether file is write accessible to current user
+#'
+#'
+write_accessible <- function(filename) {
+  if (!file.exists(filename))
+    return(write_accessible(dirname(filename)))
+
+  return(file.access(filename, mode = 2) == 0)
+}
+
+
 #' Set sensible defaults for \code{write.table}
+#'
+#'
 write_tsv <- function(dat, output_file) {
+  if (write_accessible(output_file)) {
     write.table(dat, file = output_file, quote = FALSE,
                 sep = '\t', row.names = FALSE)
+  } else {
+    mymessage('write_tsv', sprintf('cannot write to %s', output_file))
+  }
 }
 
 
@@ -405,8 +422,8 @@ check_columns <- function(dtf, query_colnames) {
   stopifnot(all(c('data.frame', 'data.table') %in% class(dtf)))
   missing_colnames <- setdiff(query_colnames, colnames(dtf))
   if (length(missing_colnames) > 0) {
-    mymessage('check_colnames', 
-              sprintf('missing colnames: %s', 
+    mymessage('check_colnames',
+              sprintf('missing colnames: %s',
                       paste(missing_colnames, collapse = ', ')),
               f = stop)
   }
@@ -418,7 +435,7 @@ check_columns <- function(dtf, query_colnames) {
 #'
 filter_contains <- function(match, vec, search.names = T, ignore.case = T) {
   stopifnot(is.character(match), is.vector(vec))
-  if (search.names == T) { 
+  if (search.names == T) {
     search_vec <- names(vec)
   } else {
     search_vec <- vec
