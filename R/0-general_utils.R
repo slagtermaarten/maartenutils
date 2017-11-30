@@ -249,7 +249,7 @@ write_accessible <- function(filename) {
 }
 
 
-#' Set sensible defaults for \code{write.table}
+#' Write tsv using \code{write.table}
 #'
 #'
 write_tsv <- function(dat, output_file) {
