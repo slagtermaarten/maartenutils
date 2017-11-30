@@ -23,7 +23,7 @@ overlap_analysis <- function(m, method = 'jaccard') {
     ## only non-zero values of common
     Aim <- A[im]
 
-    ret <- sparseMatrix(
+    ret <- Matrix::sparseMatrix(
       i = im[, 1],
       j = im[, 2],
       x = Aim / (CS[im[, 1]] + CS[im[, 2]] - Aim),
@@ -31,7 +31,7 @@ overlap_analysis <- function(m, method = 'jaccard') {
     )
   } else {
     NF <- ncol(m)
-    ret <- Matrix(NA, nrow = NF, ncol = NF)
+    ret <- Matrix::Matrix(NA, nrow = NF, ncol = NF)
 
     for (i in 1:NF) {
       for (j in 1:NF) {
@@ -51,11 +51,11 @@ overlap_analysis <- function(m, method = 'jaccard') {
 #' Plot a set distance matrix
 #'
 #'
-plot.set_matrix <- function(o_mat) {
+plot.set_matrix <- function(o_mat, ...) {
   colnames(o_mat) <- simple_cap(colnames(o_mat))
   rownames(o_mat) <- simple_cap(rownames(o_mat))
   txt_mat <- matrix(as.character(round(o_mat, 2)), nrow = nrow(o_mat))
   ## TODO when NMF 0.23 is released, move labels to left and top
   NMF::aheatmap(o_mat, txt = txt_mat, 
-                Rowv = 1:nrow(o_mat), Colv = 1:ncol(o_mat))
+                Rowv = 1:nrow(o_mat), Colv = 1:ncol(o_mat), ...)
 }
