@@ -69,26 +69,28 @@ fancy_scientific <- function(l, digits = 3) {
   if (is.na(l)) return(NA)
   l <- signif(l, digits = digits)
   ret_val <- sapply(l, function(li) {
+    if (is.null(li)) return(NULL)
+    if (is.na(li)) return(NA)
     ## We don't need scientific notation for numbers between .1 and 10
     if (abs(as.numeric(li)) > .1 && abs(as.numeric(li)) <= 10) {
       return(as.expression(li))
     }
-    # turn in to character string in scientific notation
+    ## Turn in to character string in scientific notation
     li <- format(li, scientific = TRUE)
-    # quote the part before the exponent to keep all the digits
+    ## Quote the part before the exponent to keep all the digits
     li <- gsub("^(.*)e", "'\\1'e", li)
-    # turn the 'e+' into plotmath format
-    li <- gsub("e", "%*%10^", li)
+    ## Turn the 'e+' into plotmath format
+    li <- gsub('e(.*)$', '%*%10^{\\1}', li)
     ## Some more edits
     ## We don't need to multiply by one
     l_e <- gsub("'1'%\\*%", "", li)
     ## Nor we do need to exponentiate numbers by the first power
     # l_e <- gsub("(.*)\\^\\+01", "\\1^", l_e)
-    ## Let's replace numbers to their zeroth power to just one
-    l_e <- gsub("\\d+\\^00", "1^", l_e)
-    l_e <- gsub("%\\*%(.*)\\^\\+00", "", l_e)
-    l_e <- gsub("\\^\\+(\\d+)", "^\\1", l_e)
-    # return this as an expression
+    ## Replace numbers to their zeroth power to just one
+    l_e <- gsub('\\d+\\^00', '1^', l_e)
+    l_e <- gsub('%\\*%(.*)\\^\\+00', '', l_e)
+    l_e <- gsub('\\^\\+(\\d+)', '^\\1', l_e)
+    ## Return this as an expression
     parse(text=l_e)
   })
   return(ret_val)

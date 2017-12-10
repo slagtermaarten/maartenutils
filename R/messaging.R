@@ -1,9 +1,10 @@
 #' Messaging function
 #'
-#' @noRd
-mymessage <- function(instance = '', msg = '', f = message, ...) {
+#'
+mymessage <- function(instance = as.character(dplyr::nth(sys.calls(), -2))[[1]],
+                      msg = '', f = message, ...) {
   nodename <- Sys.info()[['nodename']]
-  # msg <- sprintf(msg, ...)
+  if (is.null(instance) || is.na(instance)) instance <- ''
   long_msg <- sprintf('%s %s %s %s',
                       stringr::str_pad(string = instance, width = 20,
                                        pad = ' ', side = 'right'),
@@ -12,8 +13,19 @@ mymessage <- function(instance = '', msg = '', f = message, ...) {
 }
 
 
-mywarning = function(instance = '', msg = '', ...) {
-  mymessage(instance = instance, msg = msg, f = warning, ...)
+#' Messaging function raising a warning
+#'
+#'
+mywarning <- function(instance = NULL, msg = '', ...) {
+  mymessage(instance = instance, msg = msg, f = warning, call. = F, ...)
+}
+
+
+#' Messaging function raising an error
+#'
+#'
+mystop <- function(instance = NULL, msg = '', ...) {
+  mymessage(instance = instance, msg = msg, f = stop, call. = F, ...)
 }
 
 

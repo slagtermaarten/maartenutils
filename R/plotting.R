@@ -85,7 +85,8 @@ find_img_dir <- function(img_dir_pat = 'img|fig') {
 #' @param golden_ratio whether to apply golden ratio, if yes user only has to
 #' supply height \code{h} and corresponding width will be set automatically
 #' @param fn filename without extension - .png and .pdf files will be generated
-w_ggsave <- function(fn, plot = last_plot(), plot_ratio = 'norm', h = 16, w = NA,
+w_ggsave <- function(fn, plot = last_plot(), plot_ratio = 'norm', 
+                     h = 16, w = NA,
                      img_folder = find_img_dir('img|fig'), units = 'cm',
                      filetypes = c('pdf'), ...) {
 
@@ -119,7 +120,6 @@ w_ggsave <- function(fn, plot = last_plot(), plot_ratio = 'norm', h = 16, w = NA
     # plot
     # gt <- ggplot2::ggplot_gtable(ggplot2::ggplot_build(plot))
     gt <- to_g(plot)
-    class(gt)
     saveRDS(gt, file.path(img_folder, sprintf('%s.grob.rds', fn)))
   }
 }
@@ -258,22 +258,41 @@ plot_panel <- function(plots, constant = 'ccf_table',
 
 #' Plot panel off ggplots and define layout of plots with matrix
 #'
+#' @param w Width of panel to be outputted to pdf in cm
+#' @param h Height of panel to be outputted to pdf in cm
 #' @export
 plot_panel_layout <- function(plots, offs = grid::unit(.35, 'cm'),
                               filename = NULL,
-                              layout_mat = t(matrix(1:length(plots))),
+                              layout_mat = NULL,
+                              nrow = NULL, 
+                              ncol = NULL,
                               widths = rep(1, ncol(layout_mat)),
                               heights = rep(1, nrow(layout_mat)),
                               w = 8.5, h = 15) {
+  if (is.null(layout_mat)) {
+    if (is.null(nrow) && !is.null(ncol)) {
+      nrow <- ceiling(length(plots) / ncol)
+    } else if (!is.null(nrow) && is.null(ncol)) {
+      ncol <- ceiling(length(plots) / nrow)
+    } else if (is.null(nrow) && is.null(ncol)) {
+      ncol <- 2
+      nrow <- ceiling(length(plots) / ncol)
+    }
+    layout_mat <- matrix(1:length(plots), ncol = ncol, nrow = nrow, byrow = T)
+  }
   ## Add labels to ggplot grobs
   plots <- to_g(plots)
-  gs <- lapply(seq_along(plots), function(ii)
-    grid::grobTree(plots[[ii]],
-                   grid::textGrob(LETTERS[ii], x = offs,
-                                  y = grid::unit(1, 'npc') - offs,
-                                  gp=grid::gpar(fontsize = global_label_size,
-                                                col='black',
-                                                fontface = 'bold'))))
+  gs <- lapply(seq_along(plots), function(ii) {
+    label_grob <- grid::textGrob(LETTERS[ii], x = offs,
+                                 y = grid::unit(1, 'npc') - offs,
+                                 gp = grid::gpar(fontsize = global_label_size,
+                                                 col='black',
+                                                 fontface = 'bold'))
+    if (!is.na(plots[[ii]])) {
+      return(label_grob)
+    } else {
+      return(grid::grobTree(plots[[ii]], label_grob))
+  }})
   p <- gridExtra::arrangeGrob(grobs = gs, layout_matrix = layout_mat,
                               widths = widths, heights = heights)
   if (!is.null(filename)) {
@@ -281,6 +300,7 @@ plot_panel_layout <- function(plots, offs = grid::unit(.35, 'cm'),
     grid.draw(p)
     dev.off()
   } else {
+    grid.newpage()
     grid.draw(p)
   }
   return(p)
