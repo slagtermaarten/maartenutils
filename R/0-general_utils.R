@@ -32,14 +32,26 @@ na_minded_sum <- function(vec) {
 }
 
 
+gen_dump_fn <- function(instance, dump_dir = '~/R_dumps') {
+  if (!dir.exists(dump_dir)) dir.create(dump_dir)
+  file.path(dump_dir, sprintf('%s_%s.Rframes', instance, 
+                              format(Sys.time(), '%Y-%m-%d_%H:%M')))
+}
+
+
 #' Try and get more informative error messages or drop straight into debugger
 #'
 #'
-perm_browser <- function(donor_id = '') {
+perm_browser <- function(instance = base::get('donor_id', inherits = T), 
+                         dump_dir = '~/R_dumps') {
   if (interactive()) {
-    browser()
+    browser(skipCalls = 1L)
   } else {
-    mymessage(donor_id, 'anomaly')
+    dump_fn <- gen_dump_fn(instance = instance, dump_dir = dump_dir)
+    dump.frames(dumpto = dump_fn, to.file = TRUE,
+                include.GlobalEnv = FALSE)
+    # debugger(dump = last.dump)
+    mymessage(instance, 'anomaly')
     print(ls())
     sapply(ls(), function(x) { print(x); print(str(get(x))) })
     return(NULL)
@@ -59,6 +71,21 @@ auto_name <- function(vec, force = T) {
 }
 
 
+#' Search call stack for item
+#'
+#' @param name Object to look for in call stack	
+#' @param env Environment to start looking in. 
+callstack_get <- function(name, env = parent.frame()) {
+  if (identical(env, emptyenv())) {
+    stop("Can't find ", name, call. = FALSE)
+  } else if (exists(name, envir = env, inherits = FALSE)) {
+    get(name, envir = env)
+  } else {
+    callstack_get(name, parent.env(env))
+  }
+}
+
+
 eps <- function(v1, v2, epsilon = .01) {
   abs(v1 - v2) < epsilon
 }
@@ -72,6 +99,8 @@ load_obj <- function(fn) {
 
 
 percentage_change <- function(new, old) {
+  stopifnot(is.numeric(old))
+  stopifnot(is.numeric(new))
   if (old > 0)
     return(100 * (new - old) / old)
   else
@@ -79,7 +108,9 @@ percentage_change <- function(new, old) {
 }
 
 
-## "Not-in" operator
+#' "Not-in" operator
+#'
+#'
 '%nin%' <- function(x,y) !('%in%'(x, y))
 
 
@@ -132,10 +163,12 @@ file_name_checks <- function(fn) {
 #'
 #' Allow for more easily readable file names
 #'
-#' @param fn file name
-#' @param root file name structure to strip away
+#' @param fn File name for which to isolate root
+#' @param root File name structure to strip away
 #'
 strip_root <- function(fn, root = rootFolder) {
+  if (!grepl(root, fn)) 
+    mystop(msg = sprintf('%s does not seem to have root %s', fn, root))
   gsub(sprintf('%s/', path.expand(rootFolder)), '', fn)
 }
 
@@ -401,21 +434,26 @@ my_table <- function(vec = c('A', 'A', 'C'), expected = c('A', 'B', 'C')) {
 #' Remove object conditional on its existence in environment env
 #'
 #'
-ifrm <- function(obj, ref = -1) {
-  if (!is.character(obj)) {
-    obj <- deparse(substitute(obj))
+cond_rm <- function(..., env = globalenv(), verbose = F) {
+  fcall <- match.call()
+  ## Strip away function name
+  object_list <- as.list(fcall)[-1]
+  ## Strip away other arguments to function call
+  if (!is.null(names(object_list))) {
+    ## Determine what named arguments need to disappear
+    o_names <- intersect(names(object_list), c('env', 'verbose'))
+    object_list <- object_list[names(object_list) %nin% o_names]
   }
-  if (exists(obj, where = ref)) {
-    rm(obj, pos = ref)
-  } else {
-    mymessage('ifrm', msg = paste0(obj, ' not found'))
+  object_list <- unique(as.character(object_list))
+
+  for (obj in object_list) {
+    if (exists(obj, envir = env)) {
+      rm(list = c(obj), envir = env)
+    } else if (verbose) {
+      mymessage(msg = paste0(obj, ' not found'))
+    }
   }
 }
-# a <- 4
-# ifrm(a)
-# a <- 4
-# ifrm('a')
-# ls('package:pacman')
 
 
 check_columns <- function(dtf, query_colnames) {
