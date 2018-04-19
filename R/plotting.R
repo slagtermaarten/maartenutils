@@ -1,7 +1,7 @@
 #' Another ggplot theme
 #'
 #'
-theme_ms <- function(base_size = global_base_size, base_family = 'sans',
+theme_ms <- function(base_size = 8, base_family = 'sans',
                      rotate_labels = NA, legend_pos = 'bottom', ...) {
   l_theme <-
     ggplot2::theme_grey(base_size = base_size, base_family = base_family) +
@@ -10,12 +10,18 @@ theme_ms <- function(base_size = global_base_size, base_family = 'sans',
       text = ggplot2::element_text(size = base_size, family = base_family),
       title = ggplot2::element_text(hjust = 0.0),
       axis.text = ggplot2::element_text(size = rel(0.8)),
-      plot.title = ggplot2::element_text(size = rel(.9), hjust = .5),
+      plot.title = ggplot2::element_text(size = rel(1), hjust = 0),
       axis.title = ggplot2::element_text(size = rel(1.0), hjust = .5),
       legend.position = legend_pos,
-      legend.key.size = grid::unit(10, 'mm'),
+      legend.key = ggplot2::element_rect(fill = '#FFFFFF00', size = 4),
+      legend.key.size = grid::unit(3, 'mm'),
+      legend.text = ggplot2::element_text(size = rel(0.8)),
       legend.title = ggplot2::element_text(size = rel(0.7), hjust = .5),
       legend.margin = ggplot2::margin(1, 1, 1, 1, unit = 'mm'),
+      legend.box = 'vertical',
+      legend.box.just = 'bottom',
+      legend.direction = 'horizontal',
+      # legend.box.margin = margin(1,1,1,1, unit = 'mm'),
       legend.spacing = grid::unit(10, 'mm'),
       panel.spacing = grid::unit(.1, "lines"),
       strip.background = ggplot2::element_rect(fill='#F0F8FF', size = 0.5),
@@ -25,9 +31,7 @@ theme_ms <- function(base_size = global_base_size, base_family = 'sans',
       panel.border = ggplot2::element_rect(colour = 'grey20', fill=NA, size=1),
       ## Top, right, bottom, left
       plot.margin = grid::unit(c(.2, .2, .2, .2), 'cm'),
-      strip.text = ggplot2::element_text(size = rel(1.0)),
-      legend.key = ggplot2::element_rect(fill = '#FFFFFF00'),
-      legend.text = ggplot2::element_text(size = rel(.8)))
+      strip.text = ggplot2::element_text(size = rel(1.0)))
 
   l_theme <- l_theme + rotate_x_labels(rotate_labels)
   l_theme <- l_theme + ggplot2::theme(...)
@@ -39,7 +43,7 @@ theme_ms <- function(base_size = global_base_size, base_family = 'sans',
 #'
 #'
 angle_adj_just <- list('90' = list('h' = 1, 'v' = .5),
-                       '45' = list('h' = 1, 'v' = 1),
+                       '45' = list('h' = 1.1, 'v' = 1),
                        '30' = list('h' = 1, 'v' = 1),
                        '0'  = list('h' = .5, 'v' = 1))
 
@@ -56,17 +60,10 @@ rotate_x_labels <- function(rotate_labels) {
 }
 
 
-gg_legend_alpha_cancel <-
-  ggplot2::guides(fill = ggplot2::guide_legend(override.aes = list(alpha = 1)),
-         colour = ggplot2::guide_legend(override.aes = list(alpha = 1)))
 
-gg_remove_x_labels <- ggplot2::theme(axis.ticks.x = ggplot2::element_blank(),
-                            axis.text.x = ggplot2::element_blank())
-
-
-find_img_dir <- function(img_dir_pat = 'img|fig') {
+find_img_dir <- function(img_dir_pat = 'plots|img|fig') {
   cur_dir <- getwd()
-  sub_dirs <- list.dirs(cur_dir, full.names = F)
+  sub_dirs <- list.dirs(cur_dir, full.names = F, recursive = F)
   fig_cand_dirs <- grep(img_dir_pat, sub_dirs, value = T)
   fig_cand_dirs <- grep('cache', fig_cand_dirs, invert = T, value = T)
   if (length(fig_cand_dirs) == 0) {
@@ -85,16 +82,19 @@ find_img_dir <- function(img_dir_pat = 'img|fig') {
 #' @param golden_ratio whether to apply golden ratio, if yes user only has to
 #' supply height \code{h} and corresponding width will be set automatically
 #' @param fn filename without extension - .png and .pdf files will be generated
-w_ggsave <- function(fn, plot = last_plot(), plot_ratio = 'norm', 
+w_ggsave <- function(fn, plot = last_plot(), plot_ratio = 'norm',
                      h = 16, w = NA,
-                     img_folder = find_img_dir('img|fig'), units = 'cm',
+                     img_folder = find_img_dir('img|fig|plots'), 
+                     units = 'cm',
                      filetypes = c('pdf'), ...) {
 
   plot_ratio <- match.arg(plot_ratio, c('golden_ratio', 'square', 'norm'),
                           several.ok = F)
   filetypes = match.arg(filetypes, choices = c('png', 'pdf', 'rds', 'grob'),
                         several.ok = T)
+
   if (!dir.exists(img_folder)) dir.create(img_folder)
+
   lheight = h
   if (is.na(w)) {
     if (plot_ratio == 'golden_ratio') {
@@ -110,18 +110,26 @@ w_ggsave <- function(fn, plot = last_plot(), plot_ratio = 'norm',
   }
   fns <- sapply(setdiff(filetypes, c('rds', 'grob')), function(ext)
                 file.path(img_folder, sprintf('%s.%s', fn, ext)))
-  lapply(fns, function(x)
-         ggsave(x, plot = plot, height = lheight, width = lwidth, dpi = 800,
-                units = units, limitsize = F, ...))
+  lapply(fns, function(x) {
+     ggsave(filename = x, plot = plot, height = lheight, 
+            width = lwidth, dpi = 800,
+            units = units, limitsize = F, ...)
+     mymessage(msg = sprintf('saved image to %s', x))
+  })
   if ('rds' %in% filetypes) {
-    saveRDS(plot, file.path(img_folder, sprintf('%s.rds', fn)))
+    full_fn <- file.path(img_folder, sprintf('%s.rds', fn))
+    saveRDS(plot, full_fn)
+    mymessage(msg = sprintf('saved image to %s', full_fn))
   }
   if ('grob' %in% filetypes) {
     # plot
     # gt <- ggplot2::ggplot_gtable(ggplot2::ggplot_build(plot))
     gt <- to_g(plot)
-    saveRDS(gt, file.path(img_folder, sprintf('%s.grob.rds', fn)))
+    full_fn <- file.path(img_folder, sprintf('%s.grob.rds', fn))
+    saveRDS(gt, full_fn)
+    mymessage(msg = sprintf('saved image to %s', full_fn))
   }
+  return(invisible())
 }
 
 
@@ -132,7 +140,11 @@ to_g <- function(li, ...) {
   to_g_helper <- function(x) {
     if (all(c('gtable', 'gTree', 'grob', 'gDesc') %nin% class(x)) &&
         any(c('ggplot', 'gg') %in% class(x))) {
-      return(ggplot2::ggplot_gtable(ggplot2::ggplot_build(x)))
+      g <- ggplot2::ggplot_gtable(ggplot2::ggplot_build(x))
+      ## Ugly hack to bypass the plotting device that ggplot_build() opens
+      if (length(dev.list()) > 0)
+        dev.off()
+      return(g)
     } else {
       return(x)
     }
@@ -180,9 +192,9 @@ normalize_grob_heights <- function(plots, ...) {
 #' @return gtable object
 set_panel_size <- function(p=NULL, g=ggplotGrob(p),
                            file=NULL,
-                           margin = unit(1,'mm'),
-                           width=unit(4, 'cm'),
-                           height=unit(4, 'cm')) {
+                           margin = grid::unit(1,'mm'),
+                           width=grid::unit(4, 'cm'),
+                           height=grid::unit(4, 'cm')) {
   panels <- grep('panel', g$layout$name)
   panel_index_w<- unique(g$layout$l[panels])
   panel_index_h<- unique(g$layout$t[panels])
@@ -212,18 +224,6 @@ set_panel_size <- function(p=NULL, g=ggplotGrob(p),
   invisible(g)
 }
 
-
-transparent_legend <- ggplot2::theme(
-  legend.background = ggplot2::element_rect(fill = 'transparent'),
-  legend.key = ggplot2::element_rect(fill = 'transparent',
-                                     color = 'transparent')
-)
-
-
-transparent_plot <- ggplot2::theme(
-  panel.background = ggplot2::element_rect(fill = 'transparent',
-                                           color = 'transparent')
-)
 
 
 #' Wrapper around cowplot::plot_grid()
@@ -256,19 +256,97 @@ plot_panel <- function(plots, constant = 'ccf_table',
 }
 
 
+#' Test whether panel is in last row of page
+#'
+#' Helper function to plot_panel_layout()
+#'
+#' @param N_plots Total amount of plots
+#' @param N_ppp Plots per page
+#' @param nrow Amount of panel rows per page
+#' @param ncol Amount of panel columns per page
+#'
+#' @value is TRUE if not in last row of page, FALSE otherwise
+test_last_row <- function(ii, N_plots = 9,
+                          N_ppp = min(nrow * ncol, 12),
+                          nrow = ceiling(sqrt(N_plots)),
+                          ncol = floor(sqrt(N_plots))) {
+  N_pages <- ceiling(N_plots / N_ppp)
+  N_rows_final <- ceiling((N_plots %% N_ppp) / ncol)
+  plt_page <- ceiling(ii / N_ppp)
+  N_plots_on_prev_pages <- (plt_page - 1) * N_ppp
+
+  ## We're not on the last page yet
+  not_last_page_bool <- (plt_page < N_pages) &&
+    ((ii - N_plots_on_prev_pages) <= ((nrow-1) * ncol))
+
+  ## We are on the last page
+  last_page_bool <- plt_page == N_pages &&
+    ((ii - N_plots_on_prev_pages) <= (N_rows_final-1) * ncol)
+
+  bool <- not_last_page_bool || last_page_bool
+  return(bool)
+}
+
+
+#' Test whether panel is last on page
+#'
+#' Helper function to plot_panel_layout()
+#'
+#' @value is TRUE if panel is last plot on page, FALSE otherwise
+test_last_panel <- function(ii, N_plots = 9,
+                          N_ppp = min(nrow * ncol, 12),
+                          nrow = ceiling(sqrt(N_plots)),
+                          ncol = floor(sqrt(N_plots))) {
+  N_pages <- ceiling(N_plots / N_ppp)
+  N_rows_final <- ceiling((N_plots %% N_ppp) / ncol)
+  plt_page <- ceiling(ii / N_ppp)
+  N_plots_on_prev_pages <- (plt_page - 1) * N_ppp
+
+  ## We're not on the last page yet
+  not_last_page_bool <- (plt_page < N_pages) &&
+    (ii %% N_ppp == 0)
+
+  bool <- not_last_page_bool || ii == N_plots
+  return(bool)
+}
+
+
 #' Plot panel off ggplots and define layout of plots with matrix
 #'
+#' cowplot::plot_grid largely fulfills the same goal but does not allow you to
+#' specify a layout matrix, this function complements that void in functionality
+#'
+#' @param ref_panel_idx Index of panel to use as reference for equally sizing
+#'   all panels. Can also be set to NULL or FALSE to forego of this behaviour.
 #' @param w Width of panel to be outputted to pdf in cm
 #' @param h Height of panel to be outputted to pdf in cm
+#' @param clear_redundant_labels Applicable to panel of equally labelled plots,
+#'   clear the axes labels
+#'
 #' @export
-plot_panel_layout <- function(plots, offs = grid::unit(.35, 'cm'),
+plot_panel_layout <- function(plots,
+                              offs = grid::unit(.35, 'cm'),
                               filename = NULL,
+                              plot_direct = F,
                               layout_mat = NULL,
-                              nrow = NULL, 
+                              nrow = NULL,
                               ncol = NULL,
+                              labels = LETTERS,
+                              clear_redundant_labels = F,
+                              clear_redundant_legends = F,
+                              ref_panel_idx = NULL,
+                              label_size = 8,
                               widths = rep(1, ncol(layout_mat)),
                               heights = rep(1, nrow(layout_mat)),
-                              w = 8.5, h = 15) {
+                              w = 17.4, h = 25) {
+  graphics.off()
+  ## Input checking, set to NULL if FALSE
+  if (!is.null(ref_panel_idx) && ref_panel_idx == FALSE)
+    ref_panel_idx <- NULL
+
+  if (is.null(labels))
+    labels <- rep(c(''), length(plots))
+
   if (is.null(layout_mat)) {
     if (is.null(nrow) && !is.null(ncol)) {
       nrow <- ceiling(length(plots) / ncol)
@@ -278,56 +356,128 @@ plot_panel_layout <- function(plots, offs = grid::unit(.35, 'cm'),
       ncol <- 2
       nrow <- ceiling(length(plots) / ncol)
     }
-    layout_mat <- matrix(1:length(plots), ncol = ncol, nrow = nrow, byrow = T)
+    N_ppp <- nrow * ncol
+    layout_mat <- matrix(1:N_ppp, ncol = ncol, nrow = nrow, byrow = T)
+    N_pages <- ceiling(length(plots) / N_ppp)
+  } else {
+    nrow <- nrow(layout_mat)
+    ncol <- ncol(layout_mat)
+    N_ppp <- nrow * ncol
+    N_pages <- ceiling(length(plots) / N_ppp)
   }
+
+  if (!is.null(ref_panel_idx)) {
+    ref_plot <- cowplot::plot_to_gtable(plots[[ref_panel_idx]])
+    grDevices::graphics.off()
+  }
+
+  # plots <- lapply(plots, ggplotGrob)
+
   ## Add labels to ggplot grobs
-  plots <- to_g(plots)
   gs <- lapply(seq_along(plots), function(ii) {
-    label_grob <- grid::textGrob(LETTERS[ii], x = offs,
+    label_grob <- grid::textGrob(labels[ii], x = offs,
                                  y = grid::unit(1, 'npc') - offs,
-                                 gp = grid::gpar(fontsize = global_label_size,
+                                 gp = grid::gpar(fontsize = label_size,
                                                  col='black',
                                                  fontface = 'bold'))
-    if (!is.na(plots[[ii]])) {
+    plt <- plots[[ii]]
+    if (all(is.na(plt))) {
       return(label_grob)
-    } else {
-      return(grid::grobTree(plots[[ii]], label_grob))
-  }})
-  p <- gridExtra::arrangeGrob(grobs = gs, layout_matrix = layout_mat,
-                              widths = widths, heights = heights)
+    }
+
+    if (clear_redundant_labels && (ii %% ncol != 1)) {
+      plt <- plt + ggplot2::theme(axis.title.y = ggplot2::element_blank())
+    }
+
+    if (clear_redundant_labels &&
+        test_last_row(ii, N_plots = length(plots), N_ppp = N_ppp,
+                      nrow = nrow, ncol = ncol)) {
+      plt <- plt + ggplot2::theme(axis.title.x = ggplot2::element_blank())
+    }
+
+    if (clear_redundant_legends &&
+        !test_last_panel(ii, N_plots = length(plots), N_ppp = N_ppp,
+                         nrow = nrow, ncol = ncol)) {
+      plt <- plt + ggplot2::theme(legend.position = 'none')
+    }
+
+    # plt <- to_g(plt)
+    g_tab <- cowplot::plot_to_gtable(plt)
+
+    if (!is.null(ref_panel_idx)) {
+      g_tab$widths[2:5] <- ref_plot$widths[2:5]
+      g_tab$heights[2:5] <- ref_plot$heights[2:5]
+    }
+
+    return(grid::grobTree(g_tab, label_grob))
+  })
+
+  grDevices::graphics.off()
+  p <- gridExtra::marrangeGrob(grobs = gs, layout_matrix = layout_mat,
+                               widths = widths, heights = heights, top = '',
+                               npages = N_pages)
+
   if (!is.null(filename)) {
-    pdf(filename, width = w/2.54, height = h/2.54)
-    grid.draw(p)
-    dev.off()
-  } else {
-    grid.newpage()
-    grid.draw(p)
+    # pdf(filename, width = w/2.54, height = h/2.54)
+    # grid::grid.draw(p)
+    # dev.off()
+    ggplot2::ggsave(plot = p, filename = filename,
+                    width = w, height = h, units = 'cm')
   }
-  return(p)
-}
 
-
-#' Lighten color
-#'
-#' @export
-lighten <- function(color, factor=1.4) {
-  col <- col2rgb(color)
-  col <- col*factor
-  col <- rgb(t(as.matrix(apply(col, 1, function(x) if (x > 255) 255 else x))),
-             maxColorValue=255)
-  return(auto_name(col))
+  if (plot_direct && is.null(filename)) {
+    # grid::grid.draw(p)
+    grDevices::graphics.off()
+    grid::grid.newpage()
+    grid::grid.draw(p)
+    return(invisible())
+  } else {
+    return(p)
+  }
 }
 
 
 #' Darken color
 #'
 #' @export
-darken <- function(color, factor=1.4) {
-  col <- col2rgb(color)
-  col <- col/factor
-  col <- rgb(t(as.matrix(apply(col, 1, function(x) if (x < 0) 0 else x))),
-             maxColorValue=255)
-  return(auto_name(col))
+darken <- function(color_vec, factor = 1.4) {
+  stopifnot(is.character(color_vec))
+  stopifnot(is.numeric(factor) && all(factor > 0) && all(!is.infinite(factor)))
+
+  max_length <- max(length(factor), length(color_vec))
+  if (length(factor) < max_length) {
+    factor <- rep_len(factor, max_length)
+  }
+  if (length(color_vec) < max_length) {
+    color_vec <- rep_len(color_vec, max_length)
+  }
+
+  purrr::imap(setNames(color_vec, NULL), function(color, idx) {
+    color <- col2rgb(color)
+    color <- color / factor[idx]
+    color <- apply(color, 1, 
+                   function(x) {
+                     if (x < 0) {
+                       return(0) 
+                     } else if (x > 255) { 
+                       return(255) 
+                     } else { 
+                       return(x) 
+                     }})
+    color <- rgb(t(as.matrix(color)), maxColorValue = 255)
+    name <- names(color_vec)[idx]
+    if (is.null(name) || is.na(name)) {
+      names(color) <- color
+    } else {
+      names(color) <- name
+    }
+    return(color)
+  }) %>% unlist
+}
+
+
+lighten <- function(color_vec, factor = 1.4) {
+  return(darken(color_vec, 1/factor))
 }
 
 
@@ -338,6 +488,9 @@ darken <- function(color, factor=1.4) {
 #'
 #' @export
 plot_palette <- function(cols) {
+  old_par <- par()
+  par(mar = rep(0, 4), plt = c(0, 1, 0, 1), oma = c(0, 0, 0, 0))
+  on.exit(par(old_par))
   plot(NA, xlim = c(0, 1), ylim = c(0, length(cols)), axes = F,
        xlab = '', ylab = '')
   for (i in 1:length(cols)) {
@@ -356,26 +509,52 @@ color_vector.plot <- plot_palette
 #' @return a color ramp
 #' @export
 gen_color_palette <- function(name = 'Set1', n = 30L, prims = NA) {
-  palette_prims <- c('Set1' = 5L, 'Dark2' = 8L, 'Spectral' = 6L,
-                     'FantasticFox' = 5L, 'Zissou' = 5L, 'Cavalcanti' = 5L,
-                     'Royal1' = 4L,
+  # devtools::install_github('karthik/wesanderson')
+  palette_prims <- c('Set1' = 5L, 'Dark1' = 8L, 'Dark2' = 8L, 'Spectral' = 6L,
+                     'Greys' = 9L,
+                     'GrandBudapest' = 4, 
+                     'GrandBudapest1' = 4,
+                     'GrandBudapest2' = 4, 
+                     'Moonrise1' = 4, 'Moonrise2' = 4, 'Moonrise3' = 4, 
+                     'BottleRocket' = 4, 
+                     'BottleRocket1' = 4, 
+                     'Chevalier' = 4,
+                     'Chevalier1' = 4,
+                     'FantasticFox' = 5L, 
+                     'FantasticFox1' = 5L, 
+                     'Zissou' = 5L, 
+                     'Zissou1' = 5L, 
+                     'Cavalcanti' = 5L,
+                     'Cavalcanti1' = 5L,
+                     'Royal1' = 4L, 
+                     'Darjeeling1' = 5L,
                      'Darjeeling' = 5L)
   name <- match.arg(name, names(palette_prims))
-  if (is.na(prims)) { prims <- palette_prims[name] }
-  if (name %in% names(palette_prims)[1:3]) {
+
+  available_prims <- palette_prims[name]
+  if (is.na(prims)) {
+    prims <- available_prims
+  } else {
+    ## Ensure we're not asking too many prims and cause an error
+    prims <- min(prims, available_prims)
+  }
+
+  if (name %in% names(palette_prims)[1:5]) {
     pal <- RColorBrewer::brewer.pal(name = name, n = prims)
   } else {
     ## Palette must be one of Wes Anderson's
-    pal <- wesanderson::wes_palette(name = name, n = prims, type = 'continuous')
+    pal <- wesanderson::wes_palette(name = name, n = prims,
+                                    type = 'discrete')
   }
-  ramp <- colorRampPalette(pal, space = 'Lab')
+
+  ramp <- colorRampPalette(pal, alpha = TRUE)
   return(ramp)
 }
 
 
 #' Create vector of colors from color palette
 #'
-#' @param n Amount of primary colors to take from palette
+#' @param n Amount of primary colors to interpolate from palette
 #' @param prims Amount of primary colors to use from palette
 #'
 #' @return a vector of color names
@@ -396,3 +575,82 @@ adjust_colors <- function(cols, sat=1, brightness = 1.2) {
       pmin(X[2, ], 1),
       pmin(X[3, ], 1))
 }
+
+
+#' Get rid of two outermost breaks in otherwise normal ggplot scale
+#'
+#' In order to tighly pack panels (facets) without getting overlapping labels
+internal_breaks <- function (n = 5, left_i = 1, right_i = 1, ...) {
+    function(x) {
+				scale_labels <- scales::extended_breaks(n = n, ...)(x)
+				return(scale_labels[1+left_i:(n-right_i)])
+    }
+}
+
+
+#' Extract range from ggplot object
+#'
+#'
+get_ggplot_range <- function(plot, axis = 'x') {
+  if (axis == 'x') {
+    axis <- 'x.range'
+  } else if (axis == 'y') {
+    axis <- 'y.range'
+  }
+  ggplot_build(plot)$layout$panel_ranges[[1]][[axis]]
+}
+
+
+#' Interpolate linearly on horizontal scale
+#'
+#'
+interpolate_in_range <- function(range, degree) {
+  stopifnot(length(range) == 2)
+  diff <- range[2] - range[1]
+  return(range[1] + diff * degree)
+}
+
+
+#' Get position relative to ggplot axis
+#'
+#'
+interpolate_in_gg_range <- function(plot, axis = 'x', degree = .1) {
+  interpolate_in_range(get_ggplot_range(plot, axis = axis), degree = degree)
+}
+
+remove_x <- 
+  ggplot2::theme(axis.title.x = ggplot2::element_blank(), 
+                 axis.text.x = ggplot2::element_blank(),
+                 axis.ticks.x = ggplot2::element_blank())
+
+remove_y <- 
+  ggplot2::theme(axis.title.y = ggplot2::element_blank(), 
+                 axis.text.y = ggplot2::element_blank(),
+                 axis.ticks.y = ggplot2::element_blank())
+
+remove_strip <- 
+  ggplot2::theme(strip.text = ggplot2::element_blank() , 
+                 strip.background = ggplot2::element_blank(), 
+                 plot.margin = grid::unit(c(0, 0, 0, 0), units = 'lines'))
+
+remove_legend <- ggplot2::theme(legend.position = 'none')
+
+gg_legend_alpha_cancel <-
+  ggplot2::guides(fill = ggplot2::guide_legend(override.aes = list(alpha = 1)),
+         colour = ggplot2::guide_legend(override.aes = list(alpha = 1)))
+
+gg_remove_x_labels <- ggplot2::theme(axis.ticks.x = ggplot2::element_blank(),
+                                     axis.text.x = ggplot2::element_blank())
+
+transparent_legend <- ggplot2::theme(
+  legend.background = ggplot2::element_rect(fill = 'transparent'),
+  legend.key = ggplot2::element_rect(fill = 'transparent',
+                                     color = 'transparent')
+)
+
+transparent_plot <- ggplot2::theme(
+  panel.background = ggplot2::element_rect(fill = 'transparent',
+                                           color = 'transparent')
+)
+
+var_to_label <- function(p_var) simple_cap(gsub('_', ' ', p_var))
