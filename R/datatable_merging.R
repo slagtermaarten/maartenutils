@@ -12,9 +12,12 @@ check_duplicated_rows <- function(dtf,
 #' Merge (left-join) files and run diagnostics
 #'
 #' @param maintain_attr attribute names to safeguard during merging
+#' @param dup_priority how to handle doubling of column names, prioritise the
+#' original table ('f') or the annotation table ('a')?
 controlled_merge <- function(f_dtf, a_dtf,
                              by_cols = c('variant_id', 'transcript_id'),
                              cartesian = F,
+                             dup_priority = 'a',
                              maintain_attr = NULL) {
   if (is.null(a_dtf) || nrow(a_dtf) == 0) {
     return(f_dtf)
@@ -56,11 +59,11 @@ controlled_merge <- function(f_dtf, a_dtf,
 
   if (!all(a_types[!char_types] == f_types[!char_types])) {
     non_identical <- names(a_types)[which(a_types != f_types)]
-    type_vec <- sprintf('%s (%s/%s)', non_identical, a_types[non_identical], 
+    type_vec <- sprintf('%s (%s/%s)', non_identical, a_types[non_identical],
                         f_types[non_identical])
 
-    mymessage('controlled_merge', 
-              sprintf('merge cols not of same type: %s', 
+    mymessage('controlled_merge',
+              sprintf('merge cols not of same type: %s',
                       paste(type_vec, collapse = ', ')),
               f = stop)
   }
@@ -70,8 +73,8 @@ controlled_merge <- function(f_dtf, a_dtf,
   ## Merge cols are of same type so we only have to test one
   if (any(a_types == 'factor') || any(f_types == 'factor')) {
     if (F) {
-      mymessage('controlled_merge', 
-                sprintf('merge cols of type factor: %s', 
+      mymessage('controlled_merge',
+                sprintf('merge cols of type factor: %s',
                         paste(factor_types, collapse = ', ')),
                 f = warning)
     }
@@ -84,8 +87,8 @@ controlled_merge <- function(f_dtf, a_dtf,
   }
 
   ## 2017-05-25 17:24 Prevent merge duplications by selecting rel cols only
-  sel_cols <- union(by_cols, setdiff(colnames(a_dtf), colnames(f_dtf)))
-  a_dtf <- setDT(a_dtf)[, sel_cols, with = F]
+  # sel_cols <- union(by_cols, setdiff(colnames(a_dtf), colnames(f_dtf)))
+  # a_dtf <- setDT(a_dtf)[, sel_cols, with = F]
   setkeyv(a_dtf, by_cols)
 
   ## Merge source and annotation df
@@ -101,7 +104,23 @@ controlled_merge <- function(f_dtf, a_dtf,
   ## Check column count and names
   if (check_merge_dups(dtf_merged)) {
     mymessage('controlled_merge', 'merge dups detected post-merging',
-              f = stop)
+              f = message)
+    dups <- grep(pattern = '\\.[x|y]$', x = colnames(dtf_merged),
+                 perl = T, value = T)
+    dups_clean <- unique(gsub('\\.(x|y)', '', dups))
+    for (v in dups_clean) {
+      f_var <- sprintf('%s.x', v)
+      a_var <- sprintf('%s.y', v)
+      if (dup_priority == 'f') {
+        dtf_merged[is.na(get(f_var)), (f_var) := get(a_var)]
+        dtf_merged[, (a_var) := NULL]
+        setnames(dtf_merged, f_var, v)
+      } else if (dup_priority == 'a') {
+        dtf_merged[is.na(get(a_var)), (a_var) := get(f_var)]
+        dtf_merged[, (f_var) := NULL]
+        setnames(dtf_merged, a_var, v)
+      }
+    }
   }
 
   if (cartesian == F) {
