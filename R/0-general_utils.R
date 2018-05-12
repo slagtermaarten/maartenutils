@@ -2,12 +2,6 @@ hostname <- Sys.info()[["nodename"]]
 servers <- c('paranoid', 'steroid', 'medoid', 'void', 'coley')
 local_run <- !(hostname %in% servers)
 
-# if (!local_run) {
-#   pacman::p_load('doMC')
-#   doMC::registerDoMC(cores = 16)
-# }
-
-
 if (!exists('debug_mode'))
   debug_mode <- F
 
@@ -86,7 +80,7 @@ callstack_get <- function(name, env = parent.frame()) {
 }
 
 
-eps <- function(v1, v2, epsilon = .01) {
+eps <- function(v1, v2 = 0, epsilon = .01) {
   abs(v1 - v2) < epsilon
 }
 
@@ -114,10 +108,40 @@ percentage_change <- function(new, old) {
 '%nin%' <- function(x,y) !('%in%'(x, y))
 
 
+#' "NAND' operator
+#'
+#'
+'%nand%' <- function(x, y) !(x & y)
+nand <- function(x, y) !(x & y)
+
+
+#' Replace NA values
+#'
+#'
+replace_na <- function(vec, replacement = 0) {
+  vec[is.na(vec)] <- replacement
+  return(vec)
+}
+
+
 bisect_from <- function(li, val = 'TCGA-R6-A6Y0') {
   if (val %nin% li)
     stop(sprintf('%s not in list', val))
   li %>% .[seq_along(.) >= which(. == val)]
+}
+
+
+#' NULL data detection, both non-existing or zero row data.frames/data.tables
+#'
+#' @return TRUE if data is of class \code{data.frame} or \code{data.table} and
+#' not NULL
+null_dat <- function(dtf) {
+  if (is.null(dtf)) return(TRUE)
+  if (!(any(class(dtf) == 'data.frame') || any(class(dtf) == 'data.table'))) 
+    return(TRUE)
+  if (nrow(dtf) == 0) return(TRUE)
+  ## Got here
+  return(FALSE)
 }
 
 
@@ -126,25 +150,60 @@ bisect_from <- function(li, val = 'TCGA-R6-A6Y0') {
 #' @param fh \code{data.table} object for which to change column types
 #' @param col_classes named vector of data.types, with the columns of fh as
 #' names
+#' @param convert_commas Whether to treat commas in character to numeric
+#' conversions (as Excel likes to write out) as decimal separators
 #'
 #' This was written for debugging purposes, one can and should define column
 #' types (if necessary) during data reading using data.table::fread()
-set_dt_types <- function(fh, col_classes = NULL) {
+set_dt_types <- function(fh, col_classes = NULL, convert_commas = T) {
   if (is.null(col_classes)) return(fh)
-  if (null_dat(fh)) return(NULL)
+  if (null_dat(fh)) return(fh)
+
+  convert_numeric <- function(vec) {
+    if (convert_commas && any(class(vec) == 'character')) {
+      return(as.numeric(gsub(',', '.', vec)))
+    } else {
+      return(as.numeric(vec))
+    }
+  }
 
   ## Filter down col_classes to relevant col classes
   cp <- col_classes[colnames(fh)] %>% { .[!is.na(.)] }
-  fh[, (names(cp[cp == 'character'])) := lapply(.SD, as.character),
-     .SDcols = names(cp[cp == 'character'])]
-  fh[, (names(cp[cp == 'numeric'])) := lapply(.SD, as.numeric),
-     .SDcols = names(cp[cp == 'numeric'])]
-  fh[, (names(cp[cp == 'integer'])) := lapply(.SD, as.integer),
-     .SDcols = names(cp[cp == 'integer'])]
-  fh[, (names(cp[cp == 'factor'])) := lapply(.SD, as.factor),
-     .SDcols = names(cp[cp == 'factor'])]
-  fh[, (names(cp[cp == 'logical'])) := lapply(.SD, as.logical),
-     .SDcols = names(cp[cp == 'logical'])]
+  if (length(cp) == 0) {
+    messagef('No columns to convert')
+    return(fh)
+  }
+
+  if (any(cp == 'character')) {
+    suppressWarnings(fh[, (names(cp[cp == 'character'])) := 
+                     lapply(.SD, as.character),
+     .SDcols = names(cp[cp == 'character'])])
+  }
+
+  if (any(cp == 'numeric')) {
+    suppressWarnings(fh[, (names(cp[cp == 'numeric'])) := 
+                     lapply(.SD, convert_numeric),
+       .SDcols = names(cp[cp == 'numeric'])])
+  }
+
+  if (any(cp == 'integer')) {
+    suppressWarnings(fh[, (names(cp[cp == 'integer'])) := 
+                     lapply(.SD, as.integer),
+       .SDcols = names(cp[cp == 'integer'])])
+  }
+
+  if (any(cp == 'factor')) {
+    suppressWarnings(fh[, (names(cp[cp == 'factor'])) := 
+                     lapply(.SD, as.factor),
+       .SDcols = names(cp[cp == 'factor'])])
+  }
+
+  if (any(cp == 'logical')) {
+    suppressWarnings(fh[, (names(cp[cp == 'logical'])) := 
+                     lapply(.SD, as.logical),
+       .SDcols = names(cp[cp == 'logical'])])
+  }
+
   return(fh)
 }
 
@@ -166,10 +225,14 @@ file_name_checks <- function(fn) {
 #' @param fn File name for which to isolate root
 #' @param root File name structure to strip away
 #'
-strip_root <- function(fn, root = rootFolder) {
-  if (!grepl(root, fn)) 
-    mystop(msg = sprintf('%s does not seem to have root %s', fn, root))
-  gsub(sprintf('%s/', path.expand(rootFolder)), '', fn)
+strip_root <- function(fn, root_folder = path.expand('~/')) {
+  if (!grepl(root_folder, fn)) {
+    if (!file.exists(file.path(root_folder, fn)) && 
+        !dir.exists(file.path(root_folder, fn))) {
+      mystop(msg = sprintf('%s does not seem to have root %s', fn, root_folder))
+    }
+  }
+  gsub(sprintf('%s/', path.expand(root_folder)), '', fn)
 }
 
 
@@ -180,6 +243,8 @@ normalize_colnames <- function(dtf) {
   if ('data.table' %in% class(dtf)) {
     setnames(dtf, tolower(colnames(dtf)))
     setnames(dtf, gsub(" ", "_", colnames(dtf)))
+    setnames(dtf, gsub("-", "_", colnames(dtf)))
+    setnames(dtf, gsub("\\.", "_", colnames(dtf)))
     ## Get rid of terminating dots
     setnames(dtf, gsub("\\.$", "", colnames(dtf)))
   }
@@ -190,7 +255,7 @@ normalize_colnames <- function(dtf) {
 #' Generate file loading message including the file size
 #'
 #'
-message_fn_size <- function(fn) {
+message_fn_size <- function(fn, root_folder = '~/') {
   fs <- file.size(fn)
   size_units <- 'B'
   if (fs >= 1000) size_units <- 'KB'
@@ -199,7 +264,7 @@ message_fn_size <- function(fn) {
   if (fs >= 1e12) size_units <- 'TB'
   correction_factor <- switch(size_units, 'B' = 1, 'KB' = 1e-3,
                               'MB' = 1e-6, 'GB' = 1e-9, 'TB' = 1e-12)
-  sprintf('loading %s (%.1f %s)', strip_root(fn),
+  sprintf('loading %s (%.1f %s)', strip_root(fn, root_folder = root_folder),
           fs * correction_factor, size_units)
 }
 
@@ -211,18 +276,18 @@ message_fn_size <- function(fn) {
 #'
 w_fread <- function(fn, col_classes = NULL, use_fread = T,
                     verbose = T,
-                    root_folder = path.expand('~/antigenic_space'),
+                    root_folder = path.expand('~/'),
                     normalize_colnames = F) {
   if (file_name_checks(fn)) {
     if (!is.na(fn)) {
       mymessage('w_fread', sprintf('could not read file %s',
-                                   strip_root(fn, root = root_folder)))
+                                   strip_root(fn, root_folder = root_folder)))
     }
     return(NULL)
   }
 
   if (debug_mode || interactive()) {
-    mymessage('w_fread', message_fn_size(fn))
+    mymessage('w_fread', message_fn_size(fn, root_folder = root_folder))
   }
 
   header <- fread(fn, header = T, nrows = 1, verbose = debug_mode)
@@ -374,6 +439,8 @@ test_non_outlier <- function(x, probs = c(.025, .975)) {
 remove_outliers <- function(dtf, test_cols = colnames(test_cols),
                             by_cols = 'project',
                             probs = c(.025, .975)) {
+  dtf <- as.data.table(dtf)
+  ## Test which observations are outliers by at least one variable
   outlier_bools <- dtf[, lapply(.SD, test_non_outlier, probs = probs),
                        by = by_cols, .SDcols = test_cols]
   ## All variables must not be outliers
@@ -507,4 +574,48 @@ back_up <- function(fn = 'myfilename.txt') {
 #'
 less <- function(fn) {
   system(sprintf('less -JN %s', fn))
+}
+
+
+#' Inspect a matrix without plotting all of the dimension annotation
+#'
+#'
+inspect_mat <- function(mat, nrow = 5, ncol = nrow) {
+  print(dim(mat))
+  print(mat[1:nrow, 1:ncol])
+}
+
+
+#' Filter out rows with at least one NA value
+#'
+#'
+filter_na_rows <- function(dtf) {
+  dtf[apply(dtf, 1, function(x) !any(is.na(x))), ]
+}
+
+
+#' Read RDS file or return NULL
+#'
+#'
+cond_readRDS <- function(fn) { 
+  if (file.exists(fn)) readRDS(fn)
+  else return(NULL)
+}
+
+
+#' Z-transform a vector 
+#'
+#'
+z_transform <- function(vec) {
+  vec <- unlist(vec)
+  return((vec - mean(vec, na.rm = T)) / sd(vec, na.rm = T))
+}
+
+
+#' Change attribute of an object, returning the object directly
+#'
+#' Useful in piped chains of commands like dplyr advocates
+attr_pass <- function(x, attribute = 'class', value = 'test') {
+  attr(x, attribute) <- value
+  return(x)
 }
