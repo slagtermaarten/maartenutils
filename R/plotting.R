@@ -371,8 +371,6 @@ plot_panel_layout <- function(plots,
     grDevices::graphics.off()
   }
 
-  # plots <- lapply(plots, ggplotGrob)
-
   ## Add labels to ggplot grobs
   gs <- lapply(seq_along(plots), function(ii) {
     label_grob <- grid::textGrob(labels[ii], x = offs,
@@ -441,7 +439,7 @@ plot_panel_layout <- function(plots,
 #'
 #' @export
 darken <- function(color_vec, factor = 1.4) {
-  stopifnot(is.character(color_vec))
+  was_color_vec <- is.color_vector(color_vec)
   stopifnot(is.numeric(factor) && all(factor > 0) && all(!is.infinite(factor)))
 
   max_length <- max(length(factor), length(color_vec))
@@ -451,8 +449,8 @@ darken <- function(color_vec, factor = 1.4) {
   if (length(color_vec) < max_length) {
     color_vec <- rep_len(color_vec, max_length)
   }
-
-  purrr::imap(setNames(color_vec, NULL), function(color, idx) {
+   
+  color_vec <- purrr::imap(setNames(color_vec, NULL), function(color, idx) {
     color <- col2rgb(color)
     color <- color / factor[idx]
     color <- apply(color, 1, 
@@ -473,6 +471,10 @@ darken <- function(color_vec, factor = 1.4) {
     }
     return(color)
   }) %>% unlist
+  if (was_color_vec) {
+    class(color_vec) <- unique(c('color_vector', class(color_vec)))
+  }
+  return(color_vec)
 }
 
 
@@ -481,27 +483,48 @@ lighten <- function(color_vec, factor = 1.4) {
 }
 
 
+#' Create vector of colors from color palette
+#'
+#' @param n Amount of primary colors to interpolate from palette
+#' @param prims Amount of primary colors to use from palette
+#'
+#' @return a vector of color names
+#' @export
+gen_color_vector <- function(name = 'Spectral', n = 30, prims = NA) {
+  pal <- gen_color_palette(name = name, n = n, prims = prims)(n)
+  # class(pal) <- c('color_vector', class(pal))
+  class(pal) <- 'color_vector'
+  return(pal)
+}
+
+
 #' Plot a color palette to inspect its colors
 #'
-#' @param cols character vector of (potentially named) colors
+#' @param color_vector character vector of (potentially named) colors
 #' @return invisibly, plotting the color palette using R base graphics
 #'
 #' @export
-plot_palette <- function(cols) {
+plot.color_vector <- function(color_vector) {
   old_par <- par()
   par(mar = rep(0, 4), plt = c(0, 1, 0, 1), oma = c(0, 0, 0, 0))
   on.exit(par(old_par))
-  plot(NA, xlim = c(0, 1), ylim = c(0, length(cols)), axes = F,
+  plot(NA, xlim = c(0, 1), ylim = c(0, length(color_vector)), axes = F,
        xlab = '', ylab = '')
-  for (i in 1:length(cols)) {
-    polygon(y = c(i-1, i, i, i-1), x = c(0, 0, 1, 1), col = cols[i])
-    if (!is.null(names(cols))) {
-      text(x = .5, y = i-.5, labels = names(cols)[i])
+  for (i in 1:length(color_vector)) {
+    polygon(y = c(i-1, i, i, i-1), x = c(0, 0, 1, 1), col = color_vector[i])
+    if (!is.null(names(color_vector))) {
+      text(x = .5, y = i-.5, labels = names(color_vector)[i])
     }
   }
   invisible()
 }
-color_vector.plot <- plot_palette
+# color_vector.plot <- function(x) plot_palette(x)
+is.color_vector <- function(x) inherits(x, "color_vector")
+# length.color_vector <- function(x) length(x)
+# `%[%`.color_vector <- function(x, idx) x[idx]
+# `[.color_vector` <- function(x, idx) x[idx]
+# `c.color_vector` <- function(...) c(...)
+# rev.color.vector <- function(x) x[length(x):1]
 
 
 #' Interpolate between color palettes
@@ -549,20 +572,6 @@ gen_color_palette <- function(name = 'Set1', n = 30L, prims = NA) {
 
   ramp <- colorRampPalette(pal, alpha = TRUE)
   return(ramp)
-}
-
-
-#' Create vector of colors from color palette
-#'
-#' @param n Amount of primary colors to interpolate from palette
-#' @param prims Amount of primary colors to use from palette
-#'
-#' @return a vector of color names
-#' @export
-gen_color_vector <- function(name = 'Spectral', n = 30, prims = NA) {
-  pal <- gen_color_palette(name = name, n = n, prims = prims)(n)
-  class(pal) <- c('color_vector', class(pal))
-  return(pal)
 }
 
 
