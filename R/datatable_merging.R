@@ -9,19 +9,28 @@ check_duplicated_rows <- function(dtf,
 }
 
 
-#' Merge (left-join) files and run diagnostics
+#' Merge files and run diagnostics
 #'
 #' @param maintain_attr attribute names to safeguard during merging
 #' @param dup_priority how to handle doubling of column names, prioritise the
 #' original table ('f') or the annotation table ('a')?
+#' @param clean_up_f Function to apply after merging, typically to clean up some
+#' recurrent problems
 controlled_merge <- function(f_dtf, a_dtf,
-                             by_cols = c('variant_id', 'transcript_id'),
+                             by_cols = intersect(colnames(f_dtf), 
+                                                 colnames(a_dtf)),
                              cartesian = F,
                              dup_priority = 'a',
-                             maintain_attr = NULL) {
+                             all.x = T, all.y = F,
+                             all = F,
+                             maintain_attr = NULL,
+                             clean_up_f = function(x) x) {
   if (is.null(a_dtf) || nrow(a_dtf) == 0) {
     return(f_dtf)
   }
+
+  all.x <- all.x || all
+  all.y <- all.y || all
 
   if (!is.null(maintain_attr)) {
     maintain_attr <- maintain_attr[maintain_attr %in% names(attributes(f_dtf))]
@@ -86,14 +95,11 @@ controlled_merge <- function(f_dtf, a_dtf,
     }
   }
 
-  ## 2017-05-25 17:24 Prevent merge duplications by selecting rel cols only
-  # sel_cols <- union(by_cols, setdiff(colnames(a_dtf), colnames(f_dtf)))
-  # a_dtf <- setDT(a_dtf)[, sel_cols, with = F]
-  setkeyv(a_dtf, by_cols)
-
   ## Merge source and annotation df
-  dtf_merged <- tryCatch(merge(f_dtf, unique(a_dtf, by = by_cols), all.x = T,
-                               all.y = F, by = by_cols,
+  dtf_merged <- tryCatch(merge(f_dtf, unique(a_dtf, by = by_cols), 
+                               all.x = all.x,
+                               all.y = all.y, 
+                               by = by_cols,
                                allow.cartesian = cartesian),
                          error = function(e) {
                            print(e)
@@ -103,8 +109,6 @@ controlled_merge <- function(f_dtf, a_dtf,
 
   ## Check column count and names
   if (check_merge_dups(dtf_merged)) {
-    mymessage('controlled_merge', 'merge dups detected post-merging',
-              f = message)
     dups <- grep(pattern = '\\.[x|y]$', x = colnames(dtf_merged),
                  perl = T, value = T)
     dups_clean <- unique(gsub('\\.(x|y)', '', dups))
@@ -124,7 +128,7 @@ controlled_merge <- function(f_dtf, a_dtf,
   }
 
   if (cartesian == F) {
-    if (nrow(dtf_merged) != nrow(f_dtf)) {
+    if ((nrow(dtf_merged) != nrow(f_dtf)) && all.y == F) {
       browser()
       # dup_variant_id <- dtf_merged[which(duplicated(dtf_merged,
       #                                               by = 'variant_id')),
@@ -144,6 +148,7 @@ controlled_merge <- function(f_dtf, a_dtf,
     }
   }
 
+  dtf_merged <- clean_up_f(dtf_merged)
   keyv <- key(f_dtf)
   setkeyv(dtf_merged, keyv)
   return(dtf_merged)
@@ -157,10 +162,10 @@ controlled_merge <- function(f_dtf, a_dtf,
 #'
 check_merge_dups <- function(dtf) {
   dups <- grep(pattern = '\\.[x|y]$', x = colnames(dtf), perl = T, value = T)
-  if (length(dups) > 0) {
-    message(paste(sys.calls(), collapse = '\n'))
-    warning('Found duplicated colnames, revise code: ',
-            paste(dups, collapse = ', '))
+  if (!is.null(dups) && !is.na(dups) && length(dups) > 0) {
+    # message(paste(sys.calls(), collapse = '\n'))
+    # warning('Found duplicated colnames, revise code: ',
+    #         paste(dups, collapse = ', '))
     return(T)
   } else {
     return(F)
