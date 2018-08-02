@@ -1,4 +1,11 @@
-sys_file_open <- function(fn) system(sprintf('open %s', fn))
+#' Open file using Mac OS X open command
+#'
+#'
+sys_file_open <- function(fn) {
+  for (fni in fn) {
+    system(sprintf('open %s', fni))
+  }
+}
 
 
 #' Extract file from tar archive
