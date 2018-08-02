@@ -137,9 +137,9 @@ bisect_from <- function(li, val = 'TCGA-R6-A6Y0') {
 #' not NULL
 null_dat <- function(dtf) {
   if (is.null(dtf)) return(TRUE)
-  if (!(any(class(dtf) == 'data.frame') || any(class(dtf) == 'data.table'))) 
-    return(TRUE)
-  if (nrow(dtf) == 0) return(TRUE)
+  # if (!(any(class(dtf) == 'data.frame') || any(class(dtf) == 'data.table'))) 
+  #   return(TRUE)
+  if (nrow(dtf) == 0 || ncol(dtf) == 0) return(TRUE)
   ## Got here
   return(FALSE)
 }
@@ -229,10 +229,28 @@ strip_root <- function(fn, root_folder = path.expand('~/')) {
   if (!grepl(root_folder, fn)) {
     if (!file.exists(file.path(root_folder, fn)) && 
         !dir.exists(file.path(root_folder, fn))) {
-      mystop(msg = sprintf('%s does not seem to have root %s', fn, root_folder))
+      mywarning(msg = sprintf('%s does not seem to have root %s', fn, root_folder))
     }
   }
   gsub(sprintf('%s/', path.expand(root_folder)), '', fn)
+}
+
+
+#' Turn character string into a variable name
+#'
+#' Create variable names separated by underscores from string
+#' This has sufficed for me thus far, probably not all encompassing though
+#'
+#' @param vec Character vector to edit
+#'
+variabilize_character <- function(vec) {
+  stopifnot(is.character(vec))
+  vec %>% 
+    tolower %>%
+    { gsub("-|\\.|\\s", "_", .) } %>%
+    # { gsub("^\\s*|\\s*$", "", .) } %>% ## Get rid of prefixed or postfixed spaces
+    { gsub("^_*|_*$", "", .) } %>% ## Get rid of prefixed or postfixed underscores
+    # { gsub("_*$", "", .) } ## Get rid of terminating underscores
 }
 
 
@@ -241,12 +259,9 @@ strip_root <- function(fn, root_folder = path.expand('~/')) {
 #'
 normalize_colnames <- function(dtf) {
   if ('data.table' %in% class(dtf)) {
-    setnames(dtf, tolower(colnames(dtf)))
-    setnames(dtf, gsub(" ", "_", colnames(dtf)))
-    setnames(dtf, gsub("-", "_", colnames(dtf)))
-    setnames(dtf, gsub("\\.", "_", colnames(dtf)))
-    ## Get rid of terminating dots
-    setnames(dtf, gsub("\\.$", "", colnames(dtf)))
+    setnames(dtf, variabilize_character(colnames(dtf)))
+  } else if (any(c('data.frame', 'matrix') %in% class(dtf))) {
+    colnames(dtf) <- variabilize_character(colnames(dtf))
   }
   return(dtf)
 }
