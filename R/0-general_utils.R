@@ -249,7 +249,7 @@ variabilize_character <- function(vec) {
     tolower %>%
     { gsub("-|\\.|\\s", "_", .) } %>%
     # { gsub("^\\s*|\\s*$", "", .) } %>% ## Get rid of prefixed or postfixed spaces
-    { gsub("^_*|_*$", "", .) } %>% ## Get rid of prefixed or postfixed underscores
+    { gsub("^_*|_*$", "", .) } ## %>% ## Get rid of prefixed or postfixed underscores
     # { gsub("_*$", "", .) } ## Get rid of terminating underscores
 }
 
@@ -633,4 +633,53 @@ z_transform <- function(vec) {
 attr_pass <- function(x, attribute = 'class', value = 'test') {
   attr(x, attribute) <- value
   return(x)
+}
+
+
+#' Detect outliers in vector, defined as values exceeding 1.5 * IQR
+#'
+#'
+detect_outliers <- function(vec) {
+  stopifnot(is.numeric(vec) || is.integer(vec))
+  quantile(vec, probs = c(.25, .75)) %>%
+    { diff(range(.)) * 1.5 } %>%
+    { . * c(-1, +1) + quantile(vec, probs = c(.5)) } %>%
+    { vec <= .[1] | vec >= .[2] }
+}
+
+
+#' Transpose a data.table, maintaining row names 
+#'
+#'
+transpose_data.table <- function(dtf) {
+  old_class <- class(dtf)
+  row_names <- rownames(dtf)
+  col_names <- colnames(dtf)
+  dtf <- t(dtf)
+  if ('data.table' %in% old_class) {
+    dtf <- as.data.table(dtf)
+  }
+  colnames(dtf) <- row_names
+  rownames(dtf) <- col_names
+  return(dtf)
+}
+
+
+#' Export data set to table view in browser
+#'
+#'
+explore_in_browser <- function(dtf, ...) {
+  DT::datatable(dtf, filter = 'top', ...)
+}
+
+
+#' Turn named vector into data.table
+#'
+#'
+named_vec_to_dt <- function(vec, name_var = NULL, value_var = NULL) {
+  name_var <- name_var %||% 'name'
+  value_var <- value_var %||% 'value'
+  dtf <- data.table('name' = names(vec), 'value' = vec)
+  setnames(dtf, c('name', 'value'), c(name_var, value_var))
+  return(dtf)
 }
