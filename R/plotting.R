@@ -25,10 +25,10 @@ theme_ms <- function(base_size = 8, base_family = 'sans',
       legend.spacing = grid::unit(10, 'mm'),
       panel.spacing = grid::unit(.1, "lines"),
       strip.background = ggplot2::element_rect(fill='#F0F8FF', size = 0.5),
+      panel.grid.minor = ggplot2::element_line(colour='grey97', size = 0.4),
       panel.background = ggplot2::element_blank(),
-      panel.grid.major = ggplot2::element_line(colour='grey95', size=0.5),
-      panel.grid.minor = ggplot2::element_line(colour='grey97', size=0.4),
-      panel.border = ggplot2::element_rect(colour = 'grey20', fill=NA, size=1),
+      panel.border = ggplot2::element_rect(colour = "grey10", fill = NA, 
+                                           size = 1, linetype = 'solid'),
       ## Top, right, bottom, left
       plot.margin = grid::unit(c(.2, .2, .2, .2), 'cm'),
       strip.text = ggplot2::element_text(size = rel(1.0)))
@@ -43,10 +43,9 @@ theme_ms <- function(base_size = 8, base_family = 'sans',
 #'
 #'
 angle_adj_just <- list('90' = list('h' = 1, 'v' = .5),
-                       '45' = list('h' = 1.1, 'v' = 1),
+                       '45' = list('h' = 1, 'v' = 1),
                        '30' = list('h' = 1, 'v' = 1),
                        '0'  = list('h' = .5, 'v' = 1))
-
 
 rotate_x_labels <- function(rotate_labels) {
   if (is.na(rotate_labels) || is.null(rotate_labels)) {
@@ -419,7 +418,7 @@ plot_panel_layout <- function(plots,
     # pdf(filename, width = w/2.54, height = h/2.54)
     # grid::grid.draw(p)
     # dev.off()
-    ggplot2::ggsave(plot = p, filename = filename,
+    ggplot2::ggsave(plot = p, filename = filename, useDingbats = F,
                     width = w, height = h, units = 'cm')
   }
 
@@ -601,12 +600,20 @@ internal_breaks <- function (n = 5, left_i = 1, right_i = 1, ...) {
 #'
 #'
 get_ggplot_range <- function(plot, axis = 'x') {
-  if (axis == 'x') {
-    axis <- 'x.range'
-  } else if (axis == 'y') {
-    axis <- 'y.range'
+  hor_types <- c('x', 'horizontal')
+  ver_types <-  c('y', 'vertical')
+  axis <- match.arg(tolower(axis), c(hor_types, ver_types), several.ok = F)
+  axis <- ifelse(axis %in% hor_types, 'x', 'y')
+
+  if (packageVersion('ggplot2') >= '2.2.1.9000') {
+    if (axis == 'x') {
+      return(ggplot_build(plot)$layout$panel_scales_x[[1]]$range$range)
+    } else if (axis == 'y') {
+      return(ggplot_build(plot)$layout$panel_scales_y[[1]]$range$range)
+    }
+  } else {
+    return(ggplot_build(plot)$layout$panel_ranges[[1]][[sprintf('%s.range', axis)]])
   }
-  ggplot_build(plot)$layout$panel_ranges[[1]][[axis]]
 }
 
 
@@ -662,4 +669,147 @@ transparent_plot <- ggplot2::theme(
                                            color = 'transparent')
 )
 
-var_to_label <- function(p_var) simple_cap(gsub('_', ' ', p_var))
+var_to_label <- function(p_var, reps = NULL, cap_first_word_only = T) {
+  if (!is.null(reps)) {
+    ## Match each p_var to most similar
+    p_var <- vapply(p_var, 
+      function(l_var) {
+        matching <- tryCatch(match.arg(l_var, choices = names(reps), 
+                              several.ok = F), 
+                             error = function(e) { return(NULL) }) 
+        if (is.null(matching) || matching == '') {
+          ret_val <- l_var
+        } else {
+          ret_val <- reps[which(matching == names(reps))]
+        }
+        return(ret_val)
+      }, character(1))
+  }
+  simple_cap(gsub('_', ' ', p_var), cap_first_word_only = cap_first_word_only)
+}
+
+
+#' Generic scatter plot code that shows correlation coefficient by default
+#'
+#'
+plot_scatter_cor <- function(x_var = 'adaptive_t_cells',
+                             y_var = 'rna_t_cell',
+                             trans = identity,
+                             dtf = patient_labels_tmp,
+                             cor_method = 'spearman',
+                             point_alpha = .8,
+                             axis_labeller = NULL,
+                             outlier_label_var = NULL,
+                             position = 'topleft') {
+  setDT(dtf)
+
+  axis_labeller <- axis_labeller %||% identity
+
+  p <- ggplot(dtf, aes_string(x = x_var, y = y_var)) + 
+    geom_point(alpha = point_alpha) + 
+    scale_x_continuous(name = axis_labeller(x_var), expand = c(0, 0)) +
+    scale_y_continuous(name = axis_labeller(y_var), expand = c(0, 0)) +
+    theme(aspect.ratio = 1)
+
+  if (!is.null(outlier_label_var)) {
+    outlier_dat <- dtf[detect_outliers(get(x_var)) | 
+                       detect_outliers(get(y_var))]
+    p <- p + ggrepel::geom_label_repel(data = outlier_dat, 
+                                       aes_string(label = outlier_label_var))
+  }
+
+  if (!is.null(cor_method)) {
+    if (position == 'topleft') {
+      ann_x <- interpolate_in_gg_range(p, axis = 'x', degree = .05)
+      ann_y <- interpolate_in_gg_range(p, axis = 'y', degree = .95)
+      vjust <- 1
+      hjust <- 0
+    } else if (position == 'bottomright') {
+      ann_x <- interpolate_in_gg_range(p, axis = 'x', degree = .95)
+      ann_y <- interpolate_in_gg_range(p, axis = 'y', degree = .05)
+      vjust <- 0
+      hjust <- 1
+    } else {
+      stop('Not implemented')
+    }
+    corr <- dtf[, cor(get(x_var), get(y_var), use = 'pairwise.complete.obs')]
+
+    p <- p + ggplot2::annotate('text', x = ann_x, y = ann_y, 
+                               label = sprintf("italic(r)==%.3f", corr), 
+                               parse = TRUE, vjust = vjust, hjust = hjust)
+  }
+  return(p)
+}
+
+
+#' Plot all pairwise relationships in data.frame/data.table
+#'
+#' Plot all pairwise relationships between explanatory variables (columns) in
+#' wide data and one fixed response variable
+#'
+#' @param dtf Wide \code{data.frame} or \code{data.table} object
+#' @param y_var Response variable
+#' @param y_var_trans Transformation to apply to response variable (function)
+#' @param blacklist_vars Candidate explanatory variables to exclude
+#' @param filename Filename to save result to
+#' @param nrow Amount of rows per page in result
+#' @param ncol Amount of columns per page in result
+#'
+plot_pairwise_relationships <- function(dtf = rna_sample_annotation,
+                                        y_var = 'y_var',
+                                        y_var_trans = identity,
+                                        var_labeller = identity,
+                                        blacklist_vars = c(),
+                                        filename = sprintf('%s_correlates.pdf', 
+                                                           y_var),
+                                        nrow = 5, 
+                                        ncol = 3) {
+  setDT(dtf)
+  dtf[, (y_var) := y_var_trans(get(y_var))]
+
+  factor_plots <- 
+    dtf[, lapply(.SD, 
+                 function(x) is.factor(x) || is.logical(x) || 
+                   is.character(x))] %>%
+    unlist %>% 
+    { .[. == T] } %>%
+    names %>%
+    { dtf[, lapply(.SD, function(x) uniqueN(x) > 1), .SDcols = .] } %>%
+    unlist %>% 
+    { .[. == T] } %>%
+    names %>%
+    setdiff(c(y_var, blacklist_vars)) %>%
+    auto_name %>%
+    purrr::map(function(x_var) {
+      tryCatch(ggplot(data = dtf, aes_string(x = x_var, y = y_var)) + 
+                 geom_boxplot() + 
+                 ggpubr::stat_compare_means() + 
+                 xlab(var_labeller(x_var)) + 
+                 ylab(var_labeller(y_var)) +
+                 ggplot2::theme(text = element_text(size = 6)), 
+               error = function(e) { print(e); return(NULL) }) 
+    })
+
+  numerical_plots <- dtf[, lapply(.SD, is.numeric)] %>%
+    unlist %>%
+    {.[. == T] } %>%
+    names %>%
+    setdiff(c(y_var, blacklist_vars)) %>%
+    auto_name %>%
+    purrr::map(function(x_var) {
+      plot_scatter_cor(x_var = x_var, y_var = y_var,
+                       dtf = dtf, axis_labeller = var_labeller) +
+        ggplot2::theme(text = element_text(size = 6))
+    })
+
+
+  ## Order plots according to col order in original data.frame
+  intersect(colnames(dtf), 
+            c(names(factor_plots), names(numerical_plots))) %>%
+    { c(factor_plots, numerical_plots)[.] } %>%
+    { plot_panel_layout(., filename = filename, nrow = nrow, ncol = ncol,
+                        labels = NULL) }
+  sys_file_open(filename)
+  invisible()
+}
+
