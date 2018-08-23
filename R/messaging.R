@@ -41,7 +41,7 @@ messagef <- function(msg, ...) {
 #'
 #'
 warningf <- function(msg, ...) {
-  warning(sprintf(msg, ...))
+  warning(sprintf(msg, ...), call. = F)
 }
 
 
@@ -49,5 +49,5 @@ warningf <- function(msg, ...) {
 #'
 #'
 stopf <- function(msg, ...) {
-  stop(sprintf(msg, ...))
+  stop(sprintf(msg, ...), call. = F)
 }

@@ -597,6 +597,8 @@ less <- function(fn) {
 #'
 inspect_mat <- function(mat, nrow = 5, ncol = nrow) {
   print(dim(mat))
+  nrow <- min(nrow(mat), nrow)
+  ncol <- min(ncol(mat), ncol)
   print(mat[1:nrow, 1:ncol])
 }
 

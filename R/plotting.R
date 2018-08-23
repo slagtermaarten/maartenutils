@@ -293,9 +293,9 @@ test_last_row <- function(ii, N_plots = 9,
 #'
 #' @value is TRUE if panel is last plot on page, FALSE otherwise
 test_last_panel <- function(ii, N_plots = 9,
-                          N_ppp = min(nrow * ncol, 12),
-                          nrow = ceiling(sqrt(N_plots)),
-                          ncol = floor(sqrt(N_plots))) {
+                            N_ppp = min(nrow * ncol, 12),
+                            nrow = ceiling(sqrt(N_plots)),
+                            ncol = floor(sqrt(N_plots))) {
   N_pages <- ceiling(N_plots / N_ppp)
   N_rows_final <- ceiling((N_plots %% N_ppp) / ncol)
   plt_page <- ceiling(ii / N_ppp)

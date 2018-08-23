@@ -1,11 +1,18 @@
 caplist_def <- c('UV', 'G2M', 'PAM50', 'IL6', 'IL2', 'PI3K', 'TNFa', 'NFkB',
                  'JAK', 'E2F', 'WNT', 'DNA', 'STAT3', 'STAT5', 'MYC', 'TGF',
                  'AKT', 'mTOR', 'mTORC', 'mTORC1', 'KRAS', 'of', 'UP', 'DN',
-                 'in')
+                 'in', 'NK')
 
+#' Automated capitalizing of words
+#'
+#' @param gene_regex Regex to detect words that should be capped entirely
+#' @param caplist List of class \code{vector} explicitly defining words and how
+#' they should be capitalized, matching to these is done in a case-insensitive
+#' manner
 simple_cap <- function(x, split_regex = ' |_|,',
                        gene_regex = '[a-zA-Z0-9]+\\d+',
-                       caplist = caplist_def) {
+                       caplist = caplist_def,
+                       cap_first_word_only = F) {
   stopifnot(class(x) == 'character')
   sapply(x, function(x_i) {
     ## Split into words
@@ -21,8 +28,15 @@ simple_cap <- function(x, split_regex = ' |_|,',
       w[idx] <- caplist[w_m[idx]]
     }
 
-    ## Capitalize first letter of the words which have not been manually adjusted
-    for (idx in setdiff(seq_along(w), which(!is.na(w_m)))) {
+    ## Capitalize first letter of the words which have not been manually
+    ## adjusted
+    cap_words_idx <- setdiff(seq_along(w), which(!is.na(w_m)))
+
+    if (cap_first_word_only) {
+      cap_words_idx <- setdiff(cap_words_idx, seq(2, length(cap_words_idx)))
+    }
+
+    for (idx in cap_words_idx) {
       w[idx] <- paste0(toupper(substring(w[idx], 1, 1)),
                        substring(w[idx], 2))
     }
@@ -66,11 +80,10 @@ stopifnot(sum(duplicated(index_duplicates())) == 0)
 #'
 fancy_scientific <- function(l, digits = 3) {
   if (is.null(l)) return(NULL)
-  if (is.na(l)) return(NA)
   l <- signif(l, digits = digits)
   ret_val <- sapply(l, function(li) {
     if (is.null(li)) return(NULL)
-    if (is.na(li)) return(NA)
+    if (any(is.na(li))) return(NA)
     ## We don't need scientific notation for numbers between .1 and 10
     if (abs(as.numeric(li)) > .1 && abs(as.numeric(li)) <= 10) {
       return(as.expression(li))
@@ -90,6 +103,9 @@ fancy_scientific <- function(l, digits = 3) {
     l_e <- gsub('\\d+\\^00', '1^', l_e)
     l_e <- gsub('%\\*%(.*)\\^\\+00', '', l_e)
     l_e <- gsub('\\^\\+(\\d+)', '^\\1', l_e)
+    ## Try and get rid of new lines
+    l_e <- gsub('\n', '', l_e)
+    l_e <- gsub(' ', '', l_e)
     ## Return this as an expression
     parse(text=l_e)
   })

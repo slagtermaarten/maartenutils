@@ -16,8 +16,9 @@ check_duplicated_rows <- function(dtf,
 #' original table ('f') or the annotation table ('a')?
 #' @param clean_up_f Function to apply after merging, typically to clean up some
 #' recurrent problems
-controlled_merge <- function(f_dtf, a_dtf,
-                             by_cols = intersect(colnames(f_dtf), 
+controlled_merge <- function(f_dtf, 
+                             a_dtf,
+                             by_cols = intersect(colnames(f_dtf),
                                                  colnames(a_dtf)),
                              cartesian = F,
                              dup_priority = 'a',
@@ -25,6 +26,9 @@ controlled_merge <- function(f_dtf, a_dtf,
                              all = F,
                              maintain_attr = NULL,
                              clean_up_f = function(x) x) {
+  setDT(f_dtf)
+  setDT(a_dtf)
+
   if (is.null(a_dtf) || nrow(a_dtf) == 0) {
     return(f_dtf)
   }
@@ -44,6 +48,9 @@ controlled_merge <- function(f_dtf, a_dtf,
 
   if (is.null(by_cols) || is.na(by_cols)) {
     by_cols <- intersect(colnames(f_dtf), colnames(a_dtf))
+    if (all(sort(colnames(a_dtf)) == sort(by_cols))) {
+       warning('Inferred by_cols cover all columns in annotation dtf')
+    }
   }
 
   missing_f <- setdiff(by_cols, colnames(f_dtf))
@@ -63,7 +70,8 @@ controlled_merge <- function(f_dtf, a_dtf,
   a_types <- unlist(a_dtf[, lapply(.SD, class), .SDcols = by_cols])
   f_types <- unlist(f_dtf[, lapply(.SD, class), .SDcols = by_cols])
 
-  ## This kind of a mismatch is harmless, coercion should happen correctly
+  ## Mismatches when one of the two columns are character are harmless, coercion
+  ## happens correctly
   char_types <- (a_types == 'character' | f_types == 'character')
 
   if (!all(a_types[!char_types] == f_types[!char_types])) {
@@ -96,9 +104,9 @@ controlled_merge <- function(f_dtf, a_dtf,
   }
 
   ## Merge source and annotation df
-  dtf_merged <- tryCatch(merge(f_dtf, unique(a_dtf, by = by_cols), 
+  dtf_merged <- tryCatch(merge(f_dtf, unique(a_dtf, by = by_cols),
                                all.x = all.x,
-                               all.y = all.y, 
+                               all.y = all.y,
                                by = by_cols,
                                allow.cartesian = cartesian),
                          error = function(e) {
@@ -138,7 +146,8 @@ controlled_merge <- function(f_dtf, a_dtf,
   }
 
   if (all(colnames(a_dtf) %nin% colnames(dtf_merged))) {
-     mymessage('controlled_merge', 'annotation columns absent, merging failed',
+     mymessage('controlled_merge', 
+               'annotation columns absent, merging failed',
                f = stop)
   }
 

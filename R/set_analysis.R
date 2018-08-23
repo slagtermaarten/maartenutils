@@ -51,9 +51,9 @@ overlap_analysis <- function(m, method = 'jaccard') {
 #' Plot a set distance matrix
 #'
 #'
-plot.set_matrix <- function(o_mat, ...) {
-  colnames(o_mat) <- simple_cap(colnames(o_mat))
-  rownames(o_mat) <- simple_cap(rownames(o_mat))
+plot.set_matrix <- function(o_mat, cap_fun = simple_cap, ...) {
+  colnames(o_mat) <- cap_fun(colnames(o_mat))
+  rownames(o_mat) <- cap_fun(rownames(o_mat))
   txt_mat <- matrix(as.character(round(o_mat, 2)), nrow = nrow(o_mat))
   ## TODO when NMF 0.23 is released, move labels to left and top
   NMF::aheatmap(o_mat, txt = txt_mat, 
