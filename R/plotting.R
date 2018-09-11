@@ -605,7 +605,23 @@ get_ggplot_range <- function(plot, axis = 'x') {
   axis <- match.arg(tolower(axis), c(hor_types, ver_types), several.ok = F)
   axis <- ifelse(axis %in% hor_types, 'x', 'y')
 
-  if (packageVersion('ggplot2') >= '2.2.1.9000') {
+  x_scales = ggplot_build(plot)$layout$panel_scales_x[[1]]
+  y_scales = ggplot_build(plot)$layout$panel_scales_y[[1]]
+
+  if ((x_scales$range %>% length) > 0) { range_x_c = 'RangeContinuous' %in% (x_scales$range %>% class) }
+  if ((y_scales$range %>% length) > 0) { range_y_c = 'RangeContinuous' %in% (y_scales$range %>% class) }
+
+  if (packageVersion('ggplot2') >= '3') {
+    if (axis == 'x' & range_x_c) {
+      return(ggplot_build(plot)$layout$panel_scales_x[[1]]$range$range)
+    } else if (axis == 'x' & range_x_c == FALSE) {
+      return(ggplot_build(plot)$layout$panel_scales_x[[1]]$range_c$range)
+    } else if (axis == 'y' & range_y_c) {
+      return(ggplot_build(plot)$layout$panel_scales_y[[1]]$range$range)
+    } else if (axis == 'y' & range_y_c == FALSE) {
+      return(ggplot_build(plot)$layout$panel_scales_y[[1]]$range_c$range)
+    }
+  } else if (packageVersion('ggplot2') >= '2.2.1.9000') {
     if (axis == 'x') {
       return(ggplot_build(plot)$layout$panel_scales_x[[1]]$range$range)
     } else if (axis == 'y') {
