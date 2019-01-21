@@ -3,9 +3,9 @@ Title: General utilities that simplify life in R
 Version: 0.1.0.0
 Authors@R: person("Maarten", "Slagter", email = "slagter.maarten@gmail.com", role = c("aut", "cre"))
 Description: Mixed bag of R utilties that I find useful across different projects
-Depends: R (>= 3.0.0), data.table, dtplyr, dplyr
+Depends: R (>= 3.0.0), data.table, dplyr
 License: BSD
 LazyData: true
 Imports: gdata, ggthemes, ggplot2 (>= 2.2.0), grid, gridExtra, plyr,
-  tools, Matrix, NMF, utils, dplyr, purrr
+  tools, Matrix, NMF, utils, purrr
 Suggests: testthat
