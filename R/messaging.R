@@ -1,8 +1,10 @@
 #' Messaging function
 #'
 #'
-mymessage <- function(instance = as.character(dplyr::nth(sys.calls(), -2))[[1]],
-                      msg = '', f = message, ...) {
+mymessage <- function(msg = '', 
+  instance = as.character(dplyr::nth(sys.calls(), -2))[[1]],
+  f = message, ...) {
+
   nodename <- Sys.info()[['nodename']]
   if (is.null(instance) || is.na(instance)) instance <- ''
   long_msg <- sprintf('%s %s %s %s',
