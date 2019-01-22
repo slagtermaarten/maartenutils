@@ -290,26 +290,28 @@ message_fn_size <- function(fn, root_folder = '~/') {
 #' fread does
 #'
 w_fread <- function(fn, col_classes = NULL, use_fread = T,
-                    verbose = T,
+                    verbose = F,
                     root_folder = path.expand('~/'),
                     normalize_colnames = F) {
   if (file_name_checks(fn)) {
-    if (!is.na(fn)) {
+    if (!is.na(fn) && verbose) {
       mymessage('w_fread', sprintf('could not read file %s',
                                    strip_root(fn, root_folder = root_folder)))
     }
     return(NULL)
   }
 
-  if (debug_mode || interactive()) {
+  if ((debug_mode || interactive()) && verbose) {
     mymessage('w_fread', message_fn_size(fn, root_folder = root_folder))
   }
 
-  header <- fread(fn, header = T, nrows = 1, verbose = debug_mode)
+  header <- fread(fn, header = T, nrows = 1, verbose = verbose)
   ## If the previous failed, return NULL now
   if (is.null(header)) {
-    mymessage('w_fread', sprintf('could not read header of file %s',
-                                 strip_root(fn, root = root_folder)))
+    if (verbose) {
+      mymessage('w_fread', sprintf('could not read header of file %s',
+          strip_root(fn, root = root_folder)))
+    }
     return(NULL)
   }
 
@@ -429,13 +431,7 @@ cond_setnames <- function(dtf, old_n, new_n) {
   cols_present <- intersect(colnames(dtf), old_n)
   idx <- base::match(cols_present, old_n)
   setnames(dtf, cols_present, new_n[idx])
-  invisible()
-}
-
-
-w_lapply <- function(...) {
-  args <- as.list(...)
-  lapply(auto_name(args[[1]]), args[[2]])
+  invisible(dtf)
 }
 
 
@@ -684,4 +680,9 @@ named_vec_to_dt <- function(vec, name_var = NULL, value_var = NULL) {
   dtf <- data.table('name' = names(vec), 'value' = vec)
   setnames(dtf, c('name', 'value'), c(name_var, value_var))
   return(dtf)
+}
+
+
+systemf <- function(com, ...) {
+  system(sprintf(com, ...))
 }
