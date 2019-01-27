@@ -331,6 +331,7 @@ plot_panel_layout <- function(plots,
                               nrow = NULL,
                               ncol = NULL,
                               labels = LETTERS,
+                              panel_padding = .5,
                               clear_redundant_labels = F,
                               clear_redundant_legends = F,
                               ref_panel_idx = NULL,
@@ -338,13 +339,14 @@ plot_panel_layout <- function(plots,
                               widths = rep(1, ncol(layout_mat)),
                               heights = rep(1, nrow(layout_mat)),
                               w = 17.4, h = 25) {
-  graphics.off()
   ## Input checking, set to NULL if FALSE
-  if (!is.null(ref_panel_idx) && ref_panel_idx == FALSE)
+  if (!is.null(ref_panel_idx) && ref_panel_idx == FALSE) {
     ref_panel_idx <- NULL
+  }
 
-  if (is.null(labels))
+  if (is.null(labels)) {
     labels <- rep(c(''), length(plots))
+  }
 
   if (is.null(layout_mat)) {
     if (is.null(nrow) && !is.null(ncol)) {
@@ -367,7 +369,6 @@ plot_panel_layout <- function(plots,
 
   if (!is.null(ref_panel_idx)) {
     ref_plot <- cowplot::plot_to_gtable(plots[[ref_panel_idx]])
-    grDevices::graphics.off()
   }
 
   ## Add labels to ggplot grobs
@@ -398,7 +399,6 @@ plot_panel_layout <- function(plots,
       plt <- plt + ggplot2::theme(legend.position = 'none')
     }
 
-    # plt <- to_g(plt)
     g_tab <- cowplot::plot_to_gtable(plt)
 
     if (!is.null(ref_panel_idx)) {
@@ -406,10 +406,14 @@ plot_panel_layout <- function(plots,
       g_tab$heights[2:5] <- ref_plot$heights[2:5]
     }
 
+    if (!is.null(panel_padding) && !eps(panel_padding, 0)) {
+      g_tab <- gtable::gtable_add_padding(g_tab, 
+        grid::unit(panel_padding, "cm"))
+    }
+
     return(grid::grobTree(g_tab, label_grob))
   })
 
-  grDevices::graphics.off()
   p <- gridExtra::marrangeGrob(grobs = gs, layout_matrix = layout_mat,
                                widths = widths, heights = heights, top = '',
                                npages = N_pages)
@@ -423,13 +427,9 @@ plot_panel_layout <- function(plots,
   }
 
   if (plot_direct && is.null(filename)) {
-    # grid::grid.draw(p)
-    grDevices::graphics.off()
-    grid::grid.newpage()
-    grid::grid.draw(p)
-    return(invisible())
-  } else {
     return(p)
+  } else {
+    return(invisible(filename))
   }
 }
 
