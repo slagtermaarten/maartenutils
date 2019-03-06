@@ -12,33 +12,30 @@ overlap_analysis <- function(m, method = 'jaccard') {
   m <- Matrix::as.matrix(m)
   CS <- colSums(m, na.rm = T)
 
+  ## count pairwise common entries
+  A <- crossprod(m)
+
+  ## indexes for non-zero common values
+  im <- which(A > 0, arr.ind=TRUE)
+
+  ## only non-zero values of common
+  Aim <- A[im]
+
   ## Jaccard formula: #common / (#i + #j - #common)
   if (method == 'jaccard') {
-    ## count pairwise common entries
-    A <- crossprod(m)
-
-    ## indexes for non-zero common values
-    im <- which(A > 0, arr.ind=TRUE)
-
-    ## only non-zero values of common
-    Aim <- A[im]
-
     ret <- Matrix::sparseMatrix(
       i = im[, 1],
       j = im[, 2],
       x = Aim / (CS[im[, 1]] + CS[im[, 2]] - Aim),
       dims = dim(A)
     )
-  } else {
-    NF <- ncol(m)
-    ret <- Matrix::Matrix(NA, nrow = NF, ncol = NF)
-
-    for (i in 1:NF) {
-      for (j in 1:NF) {
-        AV <- !is.na(m[, i]) & !is.na(m[, j])
-        ret[i,j] <- m[AV, i] %*% m[AV, j] / CS[i]
-      }
-    }
+  } else if (method == 'corroboration') {
+    ret <- Matrix::sparseMatrix(
+      i = im[, 1],
+      j = im[, 2],
+      x = Aim / (CS[im[, 1]]),
+      dims = dim(A)
+    )
   }
   colnames(ret) <- colnames(m)
   rownames(ret) <- colnames(m)
@@ -56,6 +53,7 @@ plot.set_matrix <- function(o_mat, cap_fun = simple_cap, ...) {
   rownames(o_mat) <- cap_fun(rownames(o_mat))
   txt_mat <- matrix(as.character(round(o_mat, 2)), nrow = nrow(o_mat))
   ## TODO when NMF 0.23 is released, move labels to left and top
-  NMF::aheatmap(o_mat, txt = txt_mat, 
-                Rowv = 1:nrow(o_mat), Colv = 1:ncol(o_mat), ...)
+  # NMF::aheatmap(o_mat, txt = txt_mat, 
+  #   Rowv = 1:nrow(o_mat), Colv = 1:ncol(o_mat), ...)
+  pheatmap::pheatmap(o_mat, ...)
 }
