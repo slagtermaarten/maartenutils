@@ -24,11 +24,12 @@ theme_ms <- function(base_size = 8, base_family = 'sans',
       # legend.box.margin = margin(1,1,1,1, unit = 'mm'),
       legend.spacing = grid::unit(10, 'mm'),
       panel.spacing = grid::unit(.1, "lines"),
-      strip.background = ggplot2::element_rect(fill='#F0F8FF', size = 0.5),
+      strip.background = ggplot2::element_rect(fill='#F0F8FF', 
+        colour = 'grey80', size = 0.5),
       panel.grid.minor = ggplot2::element_line(colour='grey97', size = 0.4),
       panel.background = ggplot2::element_blank(),
-      panel.border = ggplot2::element_rect(colour = "grey10", fill = NA, 
-                                           size = 1, linetype = 'solid'),
+      panel.border = ggplot2::element_rect(colour = "grey80", fill = NA, 
+                                           size = .5, linetype = 'solid'),
       ## Top, right, bottom, left
       plot.margin = grid::unit(c(.2, .2, .2, .2), 'cm'),
       strip.text = ggplot2::element_text(size = rel(1.0)))
@@ -407,26 +408,26 @@ plot_panel_layout <- function(plots,
     }
 
     if (!is.null(panel_padding) && !eps(panel_padding, 0)) {
-      g_tab <- gtable::gtable_add_padding(g_tab, 
-        grid::unit(panel_padding, "cm"))
+      g_tab <- gtable::gtable_add_padding(
+        g_tab, grid::unit(panel_padding, "cm"))
     }
 
     return(grid::grobTree(g_tab, label_grob))
   })
 
-  p <- gridExtra::marrangeGrob(grobs = gs, layout_matrix = layout_mat,
-                               widths = widths, heights = heights, top = '',
-                               npages = N_pages)
+  p <- gridExtra::marrangeGrob(
+    grobs = gs, layout_matrix = layout_mat,
+    widths = widths, heights = heights, top = '', npages = N_pages)
 
   if (!is.null(filename)) {
     # pdf(filename, width = w/2.54, height = h/2.54)
     # grid::grid.draw(p)
     # dev.off()
     ggplot2::ggsave(plot = p, filename = filename, useDingbats = F,
-                    width = w, height = h, units = 'cm')
+      width = w, height = h, units = 'cm')
   }
 
-  if (plot_direct && is.null(filename)) {
+  if (plot_direct) {
     return(p)
   } else {
     return(invisible(filename))

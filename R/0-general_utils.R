@@ -5,6 +5,8 @@ local_run <- !(hostname %in% servers)
 if (!exists('debug_mode'))
   debug_mode <- F
 
+`%||%` <- function(a, b) if (is.null(a)) b else a
+`%||%` <- function(a, b) if (is.null(a) || is.na(a) || length(a) == 0) b else a
 
 myerror <- function() {
   vars <- ls(parent.frame(1))
@@ -203,7 +205,6 @@ set_dt_types <- function(fh, col_classes = NULL, convert_commas = T) {
                      lapply(.SD, as.logical),
        .SDcols = names(cp[cp == 'logical'])])
   }
-
   return(fh)
 }
 
@@ -386,7 +387,8 @@ pick_first_non_NA <- function(...) {
 #' Delete a set of colnames for a data.table object
 #'
 #'
-clean_columns <- function(instance = '', fh, col_names = c('mut_context')) {
+clean_columns <- function(instance = '', fh, col_names = c('mut_context'), 
+  verbose = F) {
   if (class(instance)[1] != 'character') {
     mymessage('clean_columns', 'instance is not of class character', f = stop)
   }
@@ -396,9 +398,11 @@ clean_columns <- function(instance = '', fh, col_names = c('mut_context')) {
                        1, paste0, collapse = "")
   col_names_present <- intersect(col_names_m, colnames(fh))
   if (length(col_names_present) > 0) {
-    mymessage(instance,
-              sprintf('cleaning up: %s',
-                      paste(col_names_present, collapse = ", ")))
+    if (verbose) {
+      mymessage(instance,
+                sprintf('cleaning up: %s',
+                        paste(col_names_present, collapse = ", ")))
+    }
 
     for (coln in col_names_present) {
       ## I encountered a data.table with two identically named columns, we have
@@ -683,6 +687,28 @@ named_vec_to_dt <- function(vec, name_var = NULL, value_var = NULL) {
 }
 
 
-systemf <- function(com, ...) {
-  system(sprintf(com, ...))
+systemf <- function(com, intern = T, ...) {
+  system(glue::glue(com), intern = intern)
+}
+
+
+#' Determine whether a file should be generated
+#'
+#' Functional creating a function that compares the modification time of an
+#' object to the a reference time
+#'
+gen_time_comparator <- function(minimum_mod_time = "2017-09-24 11:17:29 CEST",
+  verbose = T) {
+  force(minimum_mod_time)
+  # fn <- list.files(pattern = 'labbook')
+  # file.mtime(fn)
+  function(fn) {
+    ret_val <- !file.exists(fn) || file.mtime(fn) < minimum_mod_time
+    if (is.na(ret_val)) ret_val <- T
+    if (ret_val == T && verbose == T) {
+      mymessage(instance = 'time_comparator', 
+        msg = sprintf('%s needs computation', fn))
+    }
+    return(ret_val)
+  }
 }
