@@ -1,6 +1,7 @@
 hostname <- Sys.info()[["nodename"]]
 servers <- c('paranoid', 'steroid', 'medoid', 'void', 'coley')
 local_run <- !(hostname %in% servers)
+setDTthreads(1)
 
 if (!exists('debug_mode'))
   debug_mode <- F
@@ -135,13 +136,16 @@ bisect_from <- function(li, val = 'TCGA-R6-A6Y0') {
 
 #' NULL data detection, both non-existing or zero row data.frames/data.tables
 #'
-#' @return TRUE if data is of class \code{data.frame} or \code{data.table} and
-#' not NULL
+#' @return F if data is not NULL AND has non-zero rows and columns if a
+#' data.frame (all data.tables are also data.frames).
 null_dat <- function(dtf) {
-  if (is.null(dtf)) return(TRUE)
-  # if (!(any(class(dtf) == 'data.frame') || any(class(dtf) == 'data.table'))) 
-  #   return(TRUE)
-  if (nrow(dtf) == 0 || ncol(dtf) == 0) return(TRUE)
+  ## Must be something weird with the object if is.null() fails on it
+  if (tryCatch(is.null(dtf), error = function(x) T))
+    return(TRUE)
+  if (tryCatch(any(class(dtf) == 'data.frame') && 
+               (nrow(dtf) == 0 || ncol(dtf) == 0), error = function(x) T))
+    return(TRUE)
+
   ## Got here
   return(FALSE)
 }
