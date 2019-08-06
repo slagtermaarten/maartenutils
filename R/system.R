@@ -67,3 +67,70 @@ md5_extract <- function(archive, md5file, fname, extractquery) {
 
   return(F)
 }
+
+
+#' Inventorise partial files of larger object
+#'
+#' Partial file names must be formatted as {basename}_{idx/object_name}.rds
+#'
+#' @return data.frame of filenames and associated indices/object names
+inventorise_partial_files <- function(full_fn, prefix = '') {
+  file_pattern <- sprintf('^%s%s-\\d+.*', prefix,
+    gsub('\\.rds$', '', basename(full_fn)))
+  files_root <- dirname(full_fn)
+  dtf <- list.files(files_root, pattern = file_pattern) %>%
+    { naturalsort::naturalsort(.) } %>%
+    { .[!sapply(., function(x) is.null(x)) & !is.na(.)] } %>%
+    {
+      data.table(
+        'idx' = as.integer(gsub('.*-(\\d+)\\.rds', '\\1', .)),
+        'fn' = file.path(files_root, .)
+      )
+    }
+  setkey(dtf, idx)
+  return(dtf)
+}
+
+
+check_missing_partial_files <- function(full_fn, prefix = '',
+  expected_extensions = 1:80) {
+  dtf <- inventorise_partial_files(full_fn = full_fn, prefix = prefix)
+  missing_ext <- setdiff(expected_extensions, dtf$idx)
+  return(missing_ext)
+}
+
+
+#' Index is expected right before file name extension and after a hyphen
+#'
+#'
+extract_idx_from_fn <- function(full_fns) {
+  vapply(full_fns, function(fn) {
+    if (is.null(fn) || is.na(fn) || length(fn) == 0)
+      return(NULL)
+    as.integer(gsub('.*-(\\d+)\\.\\w+$', '\\1', fn))
+  }, integer(1))
+}
+
+
+#'  Prepend a character string to the basename of a filename
+#'
+#'
+prepend_to_base_fn <- function(l_fn, pre = 'power_analysis_', post = F) {
+  if (post == F) {
+    file.path(dirname(l_fn), sprintf('%s%s', pre, basename(l_fn)))
+  } else {
+    pre <- prepend_hyphen(pre)
+    l_fn <- gsub('(.*)(-\\d+)\\.(\\w+)', glue::glue('\\1{pre}\\2.\\3'), basename(l_fn))
+    file.path(dirname(l_fn), l_fn)
+  }
+}
+
+
+#'  Append a character string to the basename of a filename
+#'
+#'
+append_to_base_fn <- function(l_fn, pre = 'power_analysis_') {
+  prepend_to_base_fn(l_fn, pre, post = T)
+}
+
+

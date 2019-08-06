@@ -228,14 +228,14 @@ clean_dup_cols <- function(dtf) {
 #' Partition a data.table on all combinations of one or more factors
 #'
 #'
-partition_dtf <- function(dtf, partition_vars = c(), debug = T, min_size = 1) {
+partition_dtf <- function(dtf, partition_vars = c(), min_size = 1) {
   setDT(dtf)
   partition_vars <- setdiff(partition_vars, NA)
   correct_types <- dtf[, sapply(.SD, class)] %>% 
     { names(.)[. %in% c('character', 'factor', 'integer')] } %>%
     intersect(partition_vars)
 
-  if (!is.null(partition_vars) && length(partition_vars) > 0 && !debug) {
+  if (!is.null(partition_vars) && length(partition_vars) > 0) {
     partition_levs <- purrr::map(auto_name(partition_vars),
       function(pv) {
       dtf[, c(NA, unique(get(pv)))]

@@ -451,7 +451,7 @@ darken <- function(color_vec, factor = 1.4) {
   }
    
   color_vec <- purrr::imap(setNames(color_vec, NULL), function(color, idx) {
-    color <- col2rgb(color)
+    color <- grDevices::col2rgb(color)
     color <- color / factor[idx]
     color <- apply(color, 1, 
                    function(x) {
@@ -462,7 +462,7 @@ darken <- function(color_vec, factor = 1.4) {
                      } else { 
                        return(x) 
                      }})
-    color <- rgb(t(as.matrix(color)), maxColorValue = 255)
+    color <- grDevices::rgb(t(as.matrix(color)), maxColorValue = 255)
     name <- names(color_vec)[idx]
     if (is.null(name) || is.na(name)) {
       names(color) <- color
@@ -602,7 +602,7 @@ internal_breaks <- function (n = 5, left_i = 1, right_i = 1, ...) {
 #'
 get_ggplot_range <- function(plot, axis = 'x') {
   hor_types <- c('x', 'horizontal')
-  ver_types <-  c('y', 'vertical')
+  ver_types <- c('y', 'vertical')
   axis <- match.arg(tolower(axis), c(hor_types, ver_types), several.ok = F)
   axis <- ifelse(axis %in% hor_types, 'x', 'y')
 
@@ -694,14 +694,14 @@ var_to_label <- function(p_var, reps = NULL, cap_first_word_only = T) {
 #'
 #'
 plot_scatter_cor <- function(x_var = 'adaptive_t_cells',
-                             y_var = 'rna_t_cell',
-                             trans = identity,
-                             dtf = patient_labels_tmp,
-                             cor_method = 'spearman',
-                             point_alpha = .8,
-                             axis_labeller = NULL,
-                             outlier_label_var = NULL,
-                             position = 'topleft') {
+  y_var = 'rna_t_cell',
+  trans = identity,
+  dtf = patient_labels_tmp,
+  cor_method = 'spearman',
+  point_alpha = .8,
+  axis_labeller = NULL,
+  outlier_label_var = NULL,
+  position = 'topleft') {
   setDT(dtf)
 
   axis_labeller <- axis_labeller %||% identity
@@ -713,10 +713,10 @@ plot_scatter_cor <- function(x_var = 'adaptive_t_cells',
     theme(aspect.ratio = 1)
 
   if (!is.null(outlier_label_var)) {
-    outlier_dat <- dtf[detect_outliers(get(x_var)) | 
-                       detect_outliers(get(y_var))]
+    outlier_dat <- 
+      dtf[detect_outliers(get(x_var)) | detect_outliers(get(y_var))]
     p <- p + ggrepel::geom_label_repel(data = outlier_dat, 
-                                       aes_string(label = outlier_label_var))
+      aes_string(label = outlier_label_var))
   }
 
   if (!is.null(cor_method)) {
