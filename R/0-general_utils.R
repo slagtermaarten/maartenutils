@@ -763,3 +763,18 @@ column_to_rownames <- function(dtf, colname) {
   rownames(dtf) <- row_names
   return(dtf)
 }
+
+
+#' Prepend a hyphen to a character string if it's not already present
+#'
+#' The main application of this function is in file name generation
+#'
+prepend_hyphen <- function(arg_vec) {
+  vapply(arg_vec, function(arg) {
+    if (!is.na(arg) && arg != '' && arg != 'none' && 
+        arg != 'None'&& !grepl('^-', arg)) {
+      arg <- paste0('-', arg)
+    }
+    return(arg)
+  }, character(1))
+}
