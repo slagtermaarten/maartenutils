@@ -28,7 +28,7 @@ extractFile <- function(archive, fname, extractquery) {
 }
 
 
-#' Check whether md5 of target file corresponds to tru md5, extract target file
+#' Check whether md5 of target file corresponds to true md5, extract target file
 #' if so and return filename of extracted file(s)
 #'
 #' @param (TCGA) project sequencing project name
@@ -78,7 +78,12 @@ inventorise_partial_files <- function(full_fn, prefix = '') {
   file_pattern <- sprintf('^%s%s-\\d+.*', prefix,
     gsub('\\.rds$', '', basename(full_fn)))
   files_root <- dirname(full_fn)
-  dtf <- list.files(files_root, pattern = file_pattern) %>%
+  listed_files <- list.files(files_root, pattern = file_pattern)
+  if (length(listed_files) == 0) {
+    warningf('No partial files found for: %s', full_fn)
+    return(NULL)
+  }
+  dtf <- listed_files %>%
     { naturalsort::naturalsort(.) } %>%
     { .[!sapply(., function(x) is.null(x)) & !is.na(.)] } %>%
     {
