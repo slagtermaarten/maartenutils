@@ -769,12 +769,22 @@ column_to_rownames <- function(dtf, colname) {
 #'
 #' The main application of this function is in file name generation
 #'
-prepend_hyphen <- function(arg_vec) {
+prepend_string <- function(arg_vec, prepend_string = '-') {
   vapply(arg_vec, function(arg) {
-    if (!is.na(arg) && arg != '' && arg != 'none' && 
-        arg != 'None'&& !grepl('^-', arg)) {
-      arg <- paste0('-', arg)
+    arg <- as.character(arg)
+    if (!is.na(arg) && arg != '' && !grepl('^-', arg) && 
+        tolower(arg) != 'none') {
+      arg <- paste0(prepend_string, arg)
+    } else if (arg == 'NA' || is.na(arg) || tolower(arg) == 'none') {
+      arg <- ''
     }
     return(arg)
   }, character(1))
+}
+# prepend_string('none')
+# prepend_string('rds', '.')
+# prepend_string('', '.')
+
+prepend_hyphen <- function(arg_vec) {
+  prepend_string(arg_vec, prepend_string = '-')
 }

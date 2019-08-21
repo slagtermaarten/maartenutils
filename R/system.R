@@ -139,3 +139,10 @@ append_to_base_fn <- function(l_fn, pre = 'power_analysis_') {
 }
 
 
+#' Notify me of (important) messages via email
+#'
+#'
+mail_notify <- function(subject = 'run_LOHHLA_partial', msg = 'tst',
+  email_address = Sys.getenv('EMAIL')) {
+  system(glue::glue('echo "{msg}" | mail -s "{subject}" -t {email_address}'))
+}
