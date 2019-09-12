@@ -345,6 +345,8 @@ plot_panel_layout <- function(plots,
     ref_panel_idx <- NULL
   }
 
+  plots <- plots[!sapply(plots, is.null)]
+
   if (is.null(labels)) {
     labels <- rep(c(''), length(plots))
   }
