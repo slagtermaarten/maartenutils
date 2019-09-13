@@ -2,8 +2,14 @@
 #'
 #'
 sys_file_open <- function(fn) {
+  if (Sys.info()[['sysname']] == 'Darwin') {
+    open_command <- 'open'
+  } else if (Sys.info()[['sysname']] == 'Linux') {
+    open_command <- 'xdg-open'
+  }
+
   for (fni in fn) {
-    system(sprintf('open %s', fni))
+    system(sprintf('%s %s', open_command, fni))
   }
 }
 
