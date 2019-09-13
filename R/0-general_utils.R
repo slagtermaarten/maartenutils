@@ -772,10 +772,11 @@ column_to_rownames <- function(dtf, colname) {
 prepend_string <- function(arg_vec, prepend_string = '-') {
   vapply(arg_vec, function(arg) {
     arg <- as.character(arg)
-    if (!is.na(arg) && arg != '' && !grepl('^-', arg) && 
+    if (!is.null(arg) && !is.na(arg) && arg != '' && !grepl('^-', arg) && 
         tolower(arg) != 'none') {
       arg <- paste0(prepend_string, arg)
-    } else if (arg == 'NA' || is.na(arg) || tolower(arg) == 'none') {
+    } else if (is.null(arg) || arg == 'NA' || 
+               is.na(arg) || tolower(arg) == 'none') {
       arg <- ''
     }
     return(arg)
