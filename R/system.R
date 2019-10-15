@@ -81,7 +81,7 @@ md5_extract <- function(archive, md5file, fname, extractquery) {
 #'
 #' @return data.frame of filenames and associated indices/object names
 inventorise_partial_files <- function(full_fn, prefix = '') {
-  file_pattern <- sprintf('^%s%s-\\d+.*', prefix,
+  file_pattern <- sprintf('^%s%s-\\d+\\.\\w+', prefix,
     gsub('\\.rds$', '', basename(full_fn)))
   files_root <- dirname(full_fn)
   listed_files <- list.files(files_root, pattern = file_pattern)
