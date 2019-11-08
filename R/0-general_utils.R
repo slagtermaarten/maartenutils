@@ -60,6 +60,7 @@ perm_browser <- function(instance = base::get('donor_id', inherits = T),
 #'
 #'
 auto_name <- function(vec, force = T) {
+  if (is.null(vec)) return(NULL)
   if (force) {
     return(setNames(setNames(vec, NULL), as.character(vec)))
   } else {
@@ -704,15 +705,104 @@ systemf <- function(com, intern = T, ...) {
 gen_time_comparator <- function(minimum_mod_time = "2017-09-24 11:17:29 CEST",
   verbose = T) {
   force(minimum_mod_time)
+  force(verbose)
+  verbose_def <- verbose
   # fn <- list.files(pattern = 'labbook')
   # file.mtime(fn)
-  function(fn) {
-    ret_val <- !file.exists(fn) || file.mtime(fn) < minimum_mod_time
-    if (is.na(ret_val)) ret_val <- T
-    if (ret_val == T && verbose == T) {
-      mymessage(instance = 'time_comparator', 
-        msg = sprintf('%s needs computation', fn))
-    }
-    return(ret_val)
+  function(fns, verbose = verbose_def) {
+    vapply(fns, function(fn) {
+      ret_val <- !file.exists(fn) || (file.mtime(fn) < minimum_mod_time)
+      if (is.na(ret_val)) 
+        ret_val <- T
+      if (ret_val == T && verbose == T) {
+        mymessage(instance = 'time_comparator', 
+          msg = sprintf('%s needs computation', fn))
+      }
+      return(ret_val)
+    }, logical(1))
   }
 }
+
+
+#' Generate function that replaces NA values
+#'
+#'
+replace.na.gen <- function(repval = F) {
+  force(repval)
+  function(x) {
+    x[is.na(x)] <- repval
+    return(x)
+  }
+}
+repl.na <- replace.na.gen(F)
+r0 <- replace.na.gen(0)
+repl.na.0 <- replace.na.gen(0)
+
+
+#' Append date to an existing file name
+#'
+#'
+append_date_to_fn <- function(fn, date = Sys.time()) {
+  date_string <- format(date, '%Y%m%d')
+  fn_ext <- gsub('.*(\\..+)$', '\\1', fn)
+  base_fn <- gsub('(.*)\\..+$', '\\1', fn)
+  fn_ext <- glue('{base_fn}-{date_string}{fn_ext}')
+}
+
+
+#' Change rownames to contents of a column
+#'
+#'
+column_to_rownames <- function(dtf, colname) {
+  setDT(dtf)
+  row_names <- unlist(wide_dtf[, get(colname)])
+  if (any(duplicated(row_names))) {
+    warning(glue('Duplicated values in column {colname}, cannot change rownames'))
+    return(dtf)
+  }
+  col_idxs <- setdiff(seq(1:ncol(dtf)), which(colnames(dtf) == colname))
+  dtf <- dtf[, col_idxs, with = F]
+  rownames(dtf) <- row_names
+  return(dtf)
+}
+
+
+#' Generate function that replaces NA values
+#'
+#'
+replace.na.gen <- function(repval = F) {
+  force(repval)
+  function(x) {
+    x[is.na(x)] <- repval
+    return(x)
+  }
+}
+
+
+#' Prepend a hyphen to a character string if it's not already present
+#'
+#' The main application of this function is in file name generation
+#'
+prepend_string <- function(arg_vec, prepend_string = '-') {
+  vapply(arg_vec, function(arg) {
+    arg <- as.character(arg)
+    if (!is.null(arg) && !is.na(arg) && arg != '' && !grepl('^-', arg) && 
+        tolower(arg) != 'none') {
+      arg <- paste0(prepend_string, arg)
+    } else if (is.null(arg) || arg == 'NA' || 
+               is.na(arg) || tolower(arg) == 'none') {
+      arg <- ''
+    }
+    return(arg)
+  }, character(1))
+}
+# prepend_string('none')
+# prepend_string('rds', '.')
+# prepend_string('', '.')
+
+prepend_hyphen <- function(arg_vec) {
+  prepend_string(arg_vec, prepend_string = '-')
+}
+repl.na <- replace.na.gen(F)
+r0 <- replace.na.gen(0)
+repl.na.0 <- replace.na.gen(0)

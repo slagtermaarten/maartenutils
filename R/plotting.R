@@ -345,6 +345,8 @@ plot_panel_layout <- function(plots,
     ref_panel_idx <- NULL
   }
 
+  plots <- plots[!sapply(plots, is.null)]
+
   if (is.null(labels)) {
     labels <- rep(c(''), length(plots))
   }
@@ -451,7 +453,7 @@ darken <- function(color_vec, factor = 1.4) {
   }
    
   color_vec <- purrr::imap(setNames(color_vec, NULL), function(color, idx) {
-    color <- col2rgb(color)
+    color <- grDevices::col2rgb(color)
     color <- color / factor[idx]
     color <- apply(color, 1, 
                    function(x) {
@@ -462,7 +464,7 @@ darken <- function(color_vec, factor = 1.4) {
                      } else { 
                        return(x) 
                      }})
-    color <- rgb(t(as.matrix(color)), maxColorValue = 255)
+    color <- grDevices::rgb(t(as.matrix(color)), maxColorValue = 255)
     name <- names(color_vec)[idx]
     if (is.null(name) || is.na(name)) {
       names(color) <- color
@@ -480,6 +482,81 @@ darken <- function(color_vec, factor = 1.4) {
 
 lighten <- function(color_vec, factor = 1.4) {
   return(darken(color_vec, 1/factor))
+}
+
+
+#' Convert HSL coordinates to RGB coordinates
+#' 
+#' @return r/g/b in a vector 
+hsl_to_rgb <- function(h, s, l) {
+  h <- h / 360
+  r <- g <- b <- 0.0
+  if (s == 0) {
+    r <- g <- b <- l
+  } else {
+    hue_to_rgb <- function(p, q, t) {
+      if (t < 0) { t <- t + 1.0 }
+      if (t > 1) { t <- t - 1.0 }
+      if (t < 1/6) { return(p + (q - p) * 6.0 * t) }
+      if (t < 1/2) { return(q) }
+      if (t < 2/3) { return(p + ((q - p) * ((2/3) - t) * 6)) }
+      return(p)
+    }
+    q <- ifelse(l < 0.5, l * (1.0 + s), l + s - (l*s))
+    p <- 2.0 * l - q
+    r <- hue_to_rgb(p, q, h + 1/3)
+    g <- hue_to_rgb(p, q, h)
+    b <- hue_to_rgb(p, q, h - 1/3)
+  }
+  return(c('r' = r, 'g' = g, 'b' = b))
+}
+
+
+#' Convert RGB coordinates to HSL coordinates
+#' 
+#' h = 0-360 deg, s = 0.0 - 1 (0-100%), l = 0.0 - 1 (0-100%)
+#' 
+#' @return h/s/l in a vector 
+rgb_to_hsl <- function(r, g, b) {
+  val_max <- max(c(r, g, b))
+  val_min <- min(c(r, g, b))
+  h <- s <- l <- (val_max + val_min) / 2
+  if (val_max == val_min){
+    h <- s <- 0
+  } else {
+    d <- val_max - val_min
+    s <- ifelse(l > 0.5, d / (2 - val_max - val_min), d / (val_max + val_min))
+    if (val_max == r) { h <- (g - b) / d + (ifelse(g < b, 6, 0)) }
+    if (val_max == g) { h <- (b - r) / d/ + 2 }
+    if (val_max == b) { h <- (r - g) / d + 4 }
+    h <- (h / 6) * 360
+  }
+  return(c('h' = h, 's' = s , 'l' = l))
+}
+
+
+#' Convert HSL coordinates to hexadecimal color code
+#' 
+#' @return HEX color code
+hsl_to_hex <- function(h, s, l) {
+  rgb_coords <- do.call(hsl_to_rgb, list('h' = h, 's' = s, 'l' = l))
+  do.call(rgb_to_hex, as.list(rgb_coords))
+}
+
+
+#' convert rgb coordinates to hexadecimal color code
+#' 
+#' @return hex color code
+rgb_to_hex <- function(r, g, b, nf = 255) {
+  do.call(rgb, as.list(c('red' = r, 'green' = g, 'blue' = b) / nf))
+}
+
+
+#' Convert hex code to hexadecimal color code
+#' 
+#' @return RGB coordinates (scale: [0, 255])
+hex_to_rgb <- function(hex) {
+  as.vector(col2rgb(hex))
 }
 
 
@@ -575,6 +652,10 @@ gen_color_palette <- function(name = 'Set1', n = 30L, prims = NA) {
 }
 
 
+color_palette <- function(cols) {
+}
+
+
 #' Desaturate colors
 #'
 #' @export
@@ -602,7 +683,7 @@ internal_breaks <- function (n = 5, left_i = 1, right_i = 1, ...) {
 #'
 get_ggplot_range <- function(plot, axis = 'x') {
   hor_types <- c('x', 'horizontal')
-  ver_types <-  c('y', 'vertical')
+  ver_types <- c('y', 'vertical')
   axis <- match.arg(tolower(axis), c(hor_types, ver_types), several.ok = F)
   axis <- ifelse(axis %in% hor_types, 'x', 'y')
 
@@ -694,14 +775,14 @@ var_to_label <- function(p_var, reps = NULL, cap_first_word_only = T) {
 #'
 #'
 plot_scatter_cor <- function(x_var = 'adaptive_t_cells',
-                             y_var = 'rna_t_cell',
-                             trans = identity,
-                             dtf = patient_labels_tmp,
-                             cor_method = 'spearman',
-                             point_alpha = .8,
-                             axis_labeller = NULL,
-                             outlier_label_var = NULL,
-                             position = 'topleft') {
+  y_var = 'rna_t_cell',
+  trans = identity,
+  dtf = patient_labels_tmp,
+  cor_method = 'spearman',
+  point_alpha = .8,
+  axis_labeller = NULL,
+  outlier_label_var = NULL,
+  position = 'topleft') {
   setDT(dtf)
 
   axis_labeller <- axis_labeller %||% identity
@@ -713,10 +794,10 @@ plot_scatter_cor <- function(x_var = 'adaptive_t_cells',
     theme(aspect.ratio = 1)
 
   if (!is.null(outlier_label_var)) {
-    outlier_dat <- dtf[detect_outliers(get(x_var)) | 
-                       detect_outliers(get(y_var))]
+    outlier_dat <- 
+      dtf[detect_outliers(get(x_var)) | detect_outliers(get(y_var))]
     p <- p + ggrepel::geom_label_repel(data = outlier_dat, 
-                                       aes_string(label = outlier_label_var))
+      aes_string(label = outlier_label_var))
   }
 
   if (!is.null(cor_method)) {

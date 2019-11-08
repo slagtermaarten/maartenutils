@@ -235,3 +235,42 @@ dedup_colnames <- function(dtf) {
     { sprintf('%s.%d', ., seq_along(.)) }
   return(dtf)
 }
+
+
+#' Partition a data.table on all combinations of one or more factors
+#'
+#'
+partition_dtf <- function(dtf, partition_vars = c(), min_size = 1) {
+  setDT(dtf)
+  partition_vars <- setdiff(partition_vars, NA)
+  correct_types <- dtf[, sapply(.SD, class)] %>% 
+    { names(.)[. %in% c('character', 'factor', 'integer')] } %>%
+    intersect(partition_vars)
+
+  if (!is.null(partition_vars) && length(partition_vars) > 0) {
+    partition_levs <- purrr::map(auto_name(partition_vars),
+      function(pv) {
+      dtf[, c(NA, unique(get(pv)))]
+    })
+    partition_vars <- partition_vars[sapply(partition_levs, length) > 2]
+    partition_vars_all_combs <- expand.grid(partition_levs)
+
+    ## Create filtered objects
+    f_dtf <- plyr::llply(1:nrow(partition_vars_all_combs), function(j) {
+      levs <- partition_vars_all_combs[j, ]
+      vars <- partition_vars[which(!is.na(levs))]
+      l_dtf <- dtf
+      for (j in seq_along(vars)) {
+        l_dtf <- l_dtf[get(vars[j]) == levs[j]]
+      }
+      if (nrow(l_dtf) < min_size) {
+        return(NULL)
+      } else {
+        return(l_dtf)
+      }
+    })
+  } else {
+    f_dtf <- list(dtf)
+  }
+  return(f_dtf)
+}
