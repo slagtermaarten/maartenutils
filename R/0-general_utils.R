@@ -705,9 +705,11 @@ systemf <- function(com, intern = T, ...) {
 gen_time_comparator <- function(minimum_mod_time = "2017-09-24 11:17:29 CEST",
   verbose = T) {
   force(minimum_mod_time)
+  force(verbose)
+  verbose_def <- verbose
   # fn <- list.files(pattern = 'labbook')
   # file.mtime(fn)
-  function(fns) {
+  function(fns, verbose = verbose_def) {
     vapply(fns, function(fn) {
       ret_val <- !file.exists(fn) || (file.mtime(fn) < minimum_mod_time)
       if (is.na(ret_val)) 
