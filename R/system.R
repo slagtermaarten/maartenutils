@@ -152,3 +152,12 @@ mail_notify <- function(subject = 'run_LOHHLA_partial', msg = 'tst',
   email_address = Sys.getenv('EMAIL')) {
   system(glue::glue('echo "{msg}" | mail -s "{subject}" -t {email_address}'))
 }
+
+
+#' Create overview of filenames and modification times
+#'
+#'
+gen_file_overview <- function(dir, pat) {
+  list.files(dir, pat, full.names = T) %>%
+    { data.table(fn = ., mtime = file.mtime(.)) }
+}
