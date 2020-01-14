@@ -113,3 +113,16 @@ fancy_scientific <- function(l, digits = 3) {
 }
 
 
+#' Format a flag (i.e. name and value pair) for use in a filename
+#'
+#'
+format_flag <- function(val, name) {
+  if (is.null(val) || is.na(val)) {
+    val <- 'NA'
+  }
+  if (is.character(name))
+    name <- variabilize_character(name)
+  if (is.character(val))
+    val <- variabilize_character(val)
+  return(glue::glue('-{name}={val}'))
+}

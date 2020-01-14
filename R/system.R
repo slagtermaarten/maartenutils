@@ -157,7 +157,13 @@ mail_notify <- function(subject = 'run_LOHHLA_partial', msg = 'tst',
 #' Create overview of filenames and modification times
 #'
 #'
-gen_file_overview <- function(dir, pat) {
-  list.files(dir, pat, full.names = T) %>%
-    { data.table(fn = ., mtime = file.mtime(.)) }
+gen_file_overview <- function(dir, pat = '*', include_full = F) {
+  overview <- list.files(dir, pat, full.names = include_root) %>%
+    { data.table(short_fn = ., full_fn = file.path(dir, .)) } %>%
+    .[, mtime := file.mtime(full_fn)] %>%
+    .[order(mtime)]
+  if (!include_full) {
+    overview[, full_fn := NULL]
+  }
+  return(overview)
 }
