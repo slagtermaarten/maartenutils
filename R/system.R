@@ -158,12 +158,12 @@ mail_notify <- function(subject = 'run_LOHHLA_partial', msg = 'tst',
 #'
 #'
 gen_file_overview <- function(dir, pat = '*', include_full = F) {
-  overview <- list.files(dir, pat, full.names = include_root) %>%
+  overview <- list.files(dir, pat, full.names = F) %>%
     { data.table(short_fn = ., full_fn = file.path(dir, .)) } %>%
     .[, mtime := file.mtime(full_fn)] %>%
-    .[order(mtime)]
+    .[rev(order(mtime))]
   if (!include_full) {
     overview[, full_fn := NULL]
   }
-  return(overview)
+  return(as.tibble(overview))
 }

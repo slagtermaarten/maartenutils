@@ -103,6 +103,7 @@ fancy_scientific <- function(l, digits = 3) {
     l_e <- gsub('\\d+\\^00', '1^', l_e)
     l_e <- gsub('%\\*%(.*)\\^\\+00', '', l_e)
     l_e <- gsub('\\^\\+(\\d+)', '^\\1', l_e)
+    l_e <- gsub('\\^\\{\\+0*(\\d+)\\}', '^\\1', l_e)
     ## Try and get rid of new lines
     l_e <- gsub('\n', '', l_e)
     l_e <- gsub(' ', '', l_e)
