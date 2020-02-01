@@ -225,6 +225,18 @@ clean_dup_cols <- function(dtf) {
 }
 
 
+#' Deduplicate colnames of a data.frame/data.table
+#'
+#'
+dedup_colnames <- function(dtf) {
+  dup_colnames <- unique(colnames(dtf)[which(duplicated(colnames(dtf)))])
+  colnames(dtf)[colnames(dtf) == dup_colnames] <- 
+    colnames(dtf)[colnames(dtf) == dup_colnames] %>%
+    { sprintf('%s.%d', ., seq_along(.)) }
+  return(dtf)
+}
+
+
 #' Partition a data.table on all combinations of one or more factors
 #'
 #'

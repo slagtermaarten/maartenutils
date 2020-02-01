@@ -767,6 +767,18 @@ column_to_rownames <- function(dtf, colname) {
 }
 
 
+#' Generate function that replaces NA values
+#'
+#'
+replace.na.gen <- function(repval = F) {
+  force(repval)
+  function(x) {
+    x[is.na(x)] <- repval
+    return(x)
+  }
+}
+
+
 #' Prepend a hyphen to a character string if it's not already present
 #'
 #' The main application of this function is in file name generation
@@ -791,3 +803,6 @@ prepend_string <- function(arg_vec, prepend_string = '-') {
 prepend_hyphen <- function(arg_vec) {
   prepend_string(arg_vec, prepend_string = '-')
 }
+repl.na <- replace.na.gen(F)
+r0 <- replace.na.gen(0)
+repl.na.0 <- replace.na.gen(0)
