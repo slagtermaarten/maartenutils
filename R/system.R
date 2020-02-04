@@ -232,4 +232,3 @@ prepend_to_base_fn <- function(l_fn, pre = 'power_analysis_', post = F) {
 append_to_base_fn <- function(l_fn, pre = 'power_analysis_') {
   prepend_to_base_fn(l_fn, pre, post = T)
 }
->>>>>>> 40f98452e06ed2d34c1d6d3de7a93c9849e2adf7

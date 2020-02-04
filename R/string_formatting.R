@@ -77,6 +77,7 @@ stopifnot(sum(duplicated(index_duplicates())) == 0)
 
 #' Fancy scientific string formatting of exponents
 #'
+#' Returns a string in plotmath format
 #'
 fancy_scientific <- function(l, digits = 3) {
   if (is.null(l)) return(NULL)
