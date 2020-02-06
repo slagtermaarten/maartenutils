@@ -333,14 +333,16 @@ plot_panel_layout <- function(plots,
                               label_size = 8,
                               widths = rep(1, ncol(layout_mat)),
                               heights = rep(1, nrow(layout_mat)),
-                              w = 17.4, h = 25) {
+                              rel_width = widths,
+                              rel_height = heights,
+                              w = 17.4, h = 25,
+                              width = w, height = h) {
   ## Input checking, set to NULL if FALSE
   if (!is.null(ref_panel_idx) && ref_panel_idx == FALSE) {
     ref_panel_idx <- NULL
   }
 
   plots <- plots[!sapply(plots, is.null)]
-
   if (is.null(labels)) {
     labels <- rep(c(''), length(plots))
   }
@@ -353,6 +355,7 @@ plot_panel_layout <- function(plots,
     } else if (is.null(nrow) && is.null(ncol)) {
       ncol <- 2
       nrow <- ceiling(length(plots) / ncol)
+    } else {
     }
     N_ppp <- nrow * ncol
     layout_mat <- matrix(1:N_ppp, ncol = ncol, nrow = nrow, byrow = T)
@@ -368,12 +371,17 @@ plot_panel_layout <- function(plots,
     ref_plot <- cowplot::plot_to_gtable(plots[[ref_panel_idx]])
   }
 
+  stopifnot(length(rel_height) == nrow)
+  stopifnot(length(rel_width) == ncol)
+  rel_height <- rel_height / sum(rel_height)
+  rel_width <- rel_width / sum(rel_height)
+
   ## Add labels to ggplot grobs
   gs <- lapply(seq_along(plots), function(ii) {
     label_grob <- grid::textGrob(labels[ii], x = offs,
                                  y = grid::unit(1, 'npc') - offs,
                                  gp = grid::gpar(fontsize = label_size,
-                                                 col='black',
+                                                 col = 'black',
                                                  fontface = 'bold'))
     plt <- plots[[ii]]
     if (all(is.na(plt))) {
@@ -397,30 +405,26 @@ plot_panel_layout <- function(plots,
     }
 
     g_tab <- cowplot::plot_to_gtable(plt)
-
     if (!is.null(ref_panel_idx)) {
-      g_tab$widths[2:5] <- ref_plot$widths[2:5]
-      g_tab$heights[2:5] <- ref_plot$heights[2:5]
+      g_tab$widths[2:5] <- ref_plot$rel_width[2:5]
+      g_tab$heights[2:5] <- ref_plot$rel_height[2:5]
     }
 
     if (!is.null(panel_padding) && !eps(panel_padding, 0)) {
-      g_tab <- gtable::gtable_add_padding(
-        g_tab, grid::unit(panel_padding, "cm"))
+      g_tab <- gtable::gtable_add_padding(g_tab, 
+                                          grid::unit(panel_padding, 'cm'))
     }
-
     return(grid::grobTree(g_tab, label_grob))
   })
 
-  p <- gridExtra::marrangeGrob(
-    grobs = gs, layout_matrix = layout_mat,
-    widths = widths, heights = heights, top = '', npages = N_pages)
+  p <- gridExtra::marrangeGrob(grobs = gs, 
+                               layout_matrix = layout_mat,
+                               widths = rel_width, heights = rel_height, 
+                               top = '', npages = N_pages)
 
   if (!is.null(filename)) {
-    # pdf(filename, width = w/2.54, height = h/2.54)
-    # grid::grid.draw(p)
-    # dev.off()
     ggplot2::ggsave(plot = p, filename = filename, useDingbats = F,
-      width = w, height = h, units = 'cm')
+                    width = w, height = h, units = 'cm')
   }
 
   if (plot_direct) {
