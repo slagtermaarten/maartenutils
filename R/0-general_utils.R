@@ -1,6 +1,7 @@
 hostname <- Sys.info()[["nodename"]]
 servers <- c('paranoid', 'steroid', 'medoid', 'void', 'coley')
 local_run <- !(hostname %in% servers)
+ 
 setDTthreads(1)
 
 if (!exists('debug_mode'))
@@ -573,19 +574,20 @@ filter_contains <- function(match, vec, search.names = T, ignore.case = T) {
 #' Back up a file, automatically generating a new file name in same directory
 #'
 #'
-back_up <- function(fn = 'myfilename.txt') {
-  ## Default back up file name
-  idx <- 1
-  bu_fn <- paste0(fn, '.bak.', idx)
-  ## Generate new back up file if back up if bu file already exists and has
-  ## different contents (i.e. different md5 check sum...) from source file
-  while(file.exists(bu_fn) && tools::md5sum(bu_fn) != tools::md5sum(fn)) {
-    idx <- idx + 1
+back_up <- function(fns = 'myfilename.txt') {
+  for (fn in fns) {
+    ## Default back up file name
+    idx <- 1
     bu_fn <- paste0(fn, '.bak.', idx)
+    ## Generate new back up file if back up if bu file already exists and has
+    ## different contents (i.e. different md5 check sum...) from source file
+    while(file.exists(bu_fn) && tools::md5sum(bu_fn) != tools::md5sum(fn)) {
+      idx <- idx + 1
+      bu_fn <- paste0(fn, '.bak.', idx)
+    }
+    file.copy(fn, bu_fn)
+    mymessage(instance = 'back_up', msg = sprintf('backup to %s', bu_fn))
   }
-
-  file.copy(fn, bu_fn)
-  mymessage('back_up', sprintf('backup to %s', bu_fn))
 }
 
 
@@ -703,25 +705,39 @@ systemf <- function(com, intern = T, ...) {
 #' object to the a reference time
 #'
 gen_time_comparator <- function(minimum_mod_time = "2019-09-24 11:17:29 CEST",
-  verbose = T) {
+                                verbose = T) {
   force(minimum_mod_time)
-  # fn <- list.files(pattern = 'labbook')
-  # file.mtime(fn)
-  function(fn) {
-    ret_val <- !file.exists(fn) || file.mtime(fn) < minimum_mod_time
-    if (is.na(ret_val)) ret_val <- T
-    if (ret_val == T && verbose == T) {
-      mod_time_str <- if (is.na(file.mtime(fn))) { 
-        '' 
-      } else { 
-        sprintf(', mod time: %s', file.mtime(fn)) 
+  verbose_default <- verbose
+  fun <- function(fns, verbose = verbose_default) {
+    vapply(fns, function(fn) {
+      ret_val <- !file.exists(fn) || file.mtime(fn) < minimum_mod_time
+      if (is.na(ret_val)) ret_val <- T
+      if (verbose == T) {
+        mod_time_str <- if (is.na(file.mtime(fn))) { 
+          '' 
+        } else { 
+          sprintf(', mod time: %s', file.mtime(fn)) 
+        }
+        mymessage(instance = 'time_comparator', 
+                  msg = sprintf('%s %s computation%s', basename(fn), 
+                                ifelse(ret_val, 'needs', 'does NOT need'),
+                                mod_time_str))
       }
-      mymessage(instance = 'time_comparator', 
-                msg = sprintf('%s needs computation%s', fn, mod_time_str))
-    }
-    return(ret_val)
+      return(ret_val)
+    }, logical(1))
   }
+  class(fun) <- c('time_comparator', 'function')
+  return(fun)
 }
+
+
+print.time_comparator <- function(fun) {
+  print(sprintf('Time comparator function, minimum modification time is: %s', 
+                environment(fun)$minimum_mod_time))
+  
+}
+# f <- gen_time_comparator(minimum_mod_time = "2019-09-24 11:17:29 CEST")
+# print(f)
 
 
 #' Generate function that replaces NA values
@@ -755,7 +771,7 @@ append_date_to_fn <- function(fn, date = Sys.time()) {
 #'
 column_to_rownames <- function(dtf, colname) {
   setDT(dtf)
-  row_names <- unlist(wide_dtf[, get(colname)])
+  row_names <- unlist(dtf[, get(colname)])
   if (any(duplicated(row_names))) {
     warning(glue('Duplicated values in column {colname}, cannot change rownames'))
     return(dtf)
@@ -784,6 +800,7 @@ replace.na.gen <- function(repval = F) {
 #' The main application of this function is in file name generation
 #'
 prepend_string <- function(arg_vec, prepend_string = '-') {
+  if (is.null(arg_vec)) return('')
   vapply(arg_vec, function(arg) {
     arg <- as.character(arg)
     if (!is.null(arg) && !is.na(arg) && arg != '' && !grepl('^-', arg) && 
@@ -806,3 +823,81 @@ prepend_hyphen <- function(arg_vec) {
 repl.na <- replace.na.gen(F)
 r0 <- replace.na.gen(0)
 repl.na.0 <- replace.na.gen(0)
+
+
+#' Count entries in a vector in a rolling fashion
+#'
+#' @return vector of identical length as input (v), where entry i represents the
+#' amount of times entry v[i] has been observed in the preceeding entries
+#' (v[1:(i-1)])
+rolling_tally <- function(v) {
+  u_l <- sort(setdiff(unique(v), NA))
+  if (!is.vector(v) || length(v) < 2 || length(u_l) < 2) {
+    stop('Supply me with a vector of at least 2 unique elements')
+  }
+  res <- numeric(length(v))
+  for (l in u_l) {
+    # l = u_l[1]
+    idx <- which(v == l)
+    N_obs <- length(idx)
+    res[idx] <- seq(1:N_obs)
+  }
+  return(res)
+}
+testthat::test_that("rolling_tally", {
+  testthat::expect_equal(rolling_tally(c(3, 4, 4, 3)), c(1, 1, 2, 2))
+})
+
+
+#' Compute Pielou evennness of distribution encoded in a vector
+#'
+#'
+compute_evenness <- function(x, ignore_zeros = F) {
+  stopifnot(class(x) == 'numeric' || class(x) == 'integer')
+  if (ignore_zeros) {
+    x <- x[x != 0]
+  }
+  x_norm <- x / sum(x, na.rm = T)
+  ## Divide observed entropy by maximally obtainable entropy
+  -sum(log((x_norm)^(x_norm))) / log(length(x))
+}
+
+
+prespecified_table <- function(v, exp_levels = NULL) {
+  if (is.null(exp_levels) || missing(exp_levels)) {
+    if (is.factor(v)) {
+      exp_levels <- levels(v)
+    } else {
+      exp_levels <- sort(unique(v))
+    }
+  }
+  purrr::map_int(auto_name(exp_levels), ~sum(v == .x))
+}
+stopifnot(prespecified_table(c('a', 'a', 'b')) == 
+          structure(2:1, .Names = c("a", "b")))
+
+
+rm_first_word <- function(x) {
+  gsub('^([^ ]+)\\ ', '', x, perl = T)
+}
+stopifnot(rm_first_word('B4001 PR=1 STS Prot=0.5 VExp=1-NMD') == 
+                        'PR=1 STS Prot=0.5 VExp=1-NMD')
+
+
+replace_null <- function(v, rep_value = 'none') {
+  if (is.null(v) || length(v) == 0) return(rep_value)
+  purrr::map(v, ~ifelse(is.null(.x), rep_value, .x))
+}
+
+
+make_flag <- function(varname) {
+  if (is.null(varname) || is.na(varname) ||
+      (is.logical(varname) && varname == F)) {
+    flag <- ''
+  } else {
+    value <- replace_null(varname)
+    flag <- stringr::str_c('-', deparse(substitute(varname)), '=', value)
+  }
+  return(flag)
+}
+a = 5; stopifnot(make_flag(a) == '-a=5'); rm(a)
