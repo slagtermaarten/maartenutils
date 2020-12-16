@@ -680,15 +680,33 @@ get_ggplot_range <- function(plot, axis = 'x') {
   ver_types <- c('y', 'vertical')
   axis <- match.arg(tolower(axis), c(hor_types, ver_types), several.ok = F)
   axis <- ifelse(axis %in% hor_types, 'x', 'y')
-
-  if (packageVersion('ggplot2') >= '2.2.1.9000') {
-    if (axis == 'x') {
-      return(ggplot_build(plot)$layout$panel_scales_x[[1]]$range$range)
-    } else if (axis == 'y') {
-      return(ggplot_build(plot)$layout$panel_scales_y[[1]]$range$range)
-    }
-  } else {
+ 
+  if (packageVersion('ggplot2') < '2.2.1.9000')
     return(ggplot_build(plot)$layout$panel_ranges[[1]][[sprintf('%s.range', axis)]])
+
+  x_scales <- ggplot_build(plot)$layout$panel_scales_x[[1]]
+  y_scales <- ggplot_build(plot)$layout$panel_scales_y[[1]]
+
+  if (!is.null(x_scales$range)) 
+    range_x_c <- 'RangeContinuous' %in% (class(x_scales$range))
+  if (!is.null(y_scales$range)) 
+    range_y_c <- 'RangeContinuous' %in% (class(y_scales$range))
+
+  if (packageVersion('ggplot2') >= '3') {
+    if (axis == 'x' && range_x_c)
+      return(x_scales$range$range)
+    else if (axis == 'x' && !range_x_c)
+      return(x_scales$range_c$range)
+    else if (axis == 'y' && range_y_c)
+      return(y_scales$range$range)
+    else if (axis == 'y' && !range_y_c)
+      return(y_scales$range_c$range)
+    
+  } else {
+    if (axis == 'x')
+      return(x_scales$range$range)
+    else if (axis == 'y')
+      return(y_scales$range$range)
   }
 }
 
