@@ -24,11 +24,11 @@ theme_ms <- function(base_size = 8, base_family = 'sans',
       # legend.box.margin = margin(1,1,1,1, unit = 'mm'),
       legend.spacing = grid::unit(10, 'mm'),
       panel.spacing = grid::unit(.1, "lines"),
-      strip.background = ggplot2::element_rect(fill='#F0F8FF', 
+      strip.background = ggplot2::element_rect(fill='#F0F8FF',
         colour = 'grey80', size = 0.5),
       panel.grid.minor = ggplot2::element_line(colour='grey97', size = 0.4),
       panel.background = ggplot2::element_blank(),
-      panel.border = ggplot2::element_rect(colour = "grey80", fill = NA, 
+      panel.border = ggplot2::element_rect(colour = "grey80", fill = NA,
                                            size = .5, linetype = 'solid'),
       ## Top, right, bottom, left
       plot.margin = grid::unit(c(.2, .2, .2, .2), 'cm'),
@@ -84,7 +84,7 @@ find_img_dir <- function(img_dir_pat = 'plots|img|fig') {
 #' @param fn filename without extension - .png and .pdf files will be generated
 w_ggsave <- function(fn, plot = last_plot(), plot_ratio = 'norm',
                      h = 16, w = NA,
-                     img_folder = find_img_dir('img|fig|plots'), 
+                     img_folder = find_img_dir('img|fig|plots'),
                      units = 'cm',
                      filetypes = c('pdf'), ...) {
 
@@ -111,7 +111,7 @@ w_ggsave <- function(fn, plot = last_plot(), plot_ratio = 'norm',
   fns <- sapply(setdiff(filetypes, c('rds', 'grob')), function(ext)
                 file.path(img_folder, sprintf('%s.%s', fn, ext)))
   lapply(fns, function(x) {
-     ggsave(filename = x, plot = plot, height = lheight, 
+     ggsave(filename = x, plot = plot, height = lheight,
             width = lwidth, dpi = 800,
             units = units, limitsize = F, ...)
      mymessage(msg = sprintf('saved image to %s', x))
@@ -336,6 +336,7 @@ plot_panel_layout <- function(plots,
                               rel_width = widths,
                               rel_height = heights,
                               w = 17.4, h = 25,
+                              prevent_overwrite = F,
                               width = w, height = h) {
   ## Input checking, set to NULL if FALSE
   if (!is.null(ref_panel_idx) && ref_panel_idx == FALSE) {
@@ -355,7 +356,6 @@ plot_panel_layout <- function(plots,
     } else if (is.null(nrow) && is.null(ncol)) {
       ncol <- 2
       nrow <- ceiling(length(plots) / ncol)
-    } else {
     }
     N_ppp <- nrow * ncol
     layout_mat <- matrix(1:N_ppp, ncol = ncol, nrow = nrow, byrow = T)
@@ -374,28 +374,34 @@ plot_panel_layout <- function(plots,
   stopifnot(length(rel_height) == nrow)
   stopifnot(length(rel_width) == ncol)
   rel_height <- rel_height / sum(rel_height)
-  rel_width <- rel_width / sum(rel_height)
+  rel_width <- rel_width / sum(rel_width)
 
   ## Add labels to ggplot grobs
   gs <- lapply(seq_along(plots), function(ii) {
-    label_grob <- grid::textGrob(labels[ii], x = offs,
-                                 y = grid::unit(1, 'npc') - offs,
-                                 gp = grid::gpar(fontsize = label_size,
-                                                 col = 'black',
-                                                 fontface = 'bold'))
+    label_grob <- 
+      grid::textGrob(labels[ii], x = offs,
+        y = grid::unit(1, 'npc') - offs,
+        gp = grid::gpar(
+          fontsize = label_size,
+          col = 'black', fontface = 'bold'
+        )
+      )
     plt <- plots[[ii]]
     if (all(is.na(plt))) {
       return(label_grob)
     }
 
     if (clear_redundant_labels && (ii %% ncol != 1)) {
-      plt <- plt + ggplot2::theme(axis.title.y = ggplot2::element_blank())
+      plt <- plt + 
+        ggplot2::theme(axis.title.y = ggplot2::element_blank())
     }
 
     if (clear_redundant_labels &&
-        test_last_row(ii, N_plots = length(plots), N_ppp = N_ppp,
-                      nrow = nrow, ncol = ncol)) {
-      plt <- plt + ggplot2::theme(axis.title.x = ggplot2::element_blank())
+        test_last_row(
+          ii, N_plots = length(plots), N_ppp = N_ppp,
+          nrow = nrow, ncol = ncol)) {
+      plt <- plt + 
+        ggplot2::theme(axis.title.x = ggplot2::element_blank())
     }
 
     if (clear_redundant_legends &&
@@ -411,20 +417,38 @@ plot_panel_layout <- function(plots,
     }
 
     if (!is.null(panel_padding) && !eps(panel_padding, 0)) {
-      g_tab <- gtable::gtable_add_padding(g_tab, 
-                                          grid::unit(panel_padding, 'cm'))
+      g_tab <- gtable::gtable_add_padding(
+        g_tab,
+        grid::unit(panel_padding, 'cm')
+      )
     }
     return(grid::grobTree(g_tab, label_grob))
   })
 
-  p <- gridExtra::marrangeGrob(grobs = gs, 
-                               layout_matrix = layout_mat,
-                               widths = rel_width, heights = rel_height, 
-                               top = '', npages = N_pages)
+  p <- gridExtra::marrangeGrob(
+    grobs = gs, layout_matrix = layout_mat,
+    widths = rel_width, heights = rel_height,
+    top = '', npages = N_pages)
 
   if (!is.null(filename)) {
-    ggplot2::ggsave(plot = p, filename = filename, useDingbats = F,
-                    width = w, height = h, units = 'cm')
+    if (file.exists(filename) && prevent_overwrite) {
+      ## Default back up file name
+      filename_split <- strsplit(filename, '\\.')[[1]]
+      ext <- filename_split[-1]
+      filename_main <- paste(filename_split[1:(length(filename_split)-1)], 
+          collapse = '')
+      idx <- 2
+      new_fn <- paste0(filename_main, '_v', idx, '.', ext)
+      while(file.exists(new_fn) && 
+        tools::md5sum(new_fn) != tools::md5sum(fn)) {
+        idx <- idx + 1
+        new_fn <- paste0(filename_main, '_v', idx, '.', ext)
+      }
+      filename <- new_fn
+    }
+    ggplot2::ggsave(plot = p, filename = filename, 
+      # useDingbats = F,
+      limitsize = F, width = width, height = height, units = 'cm')
   }
 
   if (plot_direct) {
@@ -449,18 +473,18 @@ darken <- function(color_vec, factor = 1.4) {
   if (length(color_vec) < max_length) {
     color_vec <- rep_len(color_vec, max_length)
   }
-   
+
   color_vec <- purrr::imap(setNames(color_vec, NULL), function(color, idx) {
     color <- grDevices::col2rgb(color)
     color <- color / factor[idx]
-    color <- apply(color, 1, 
+    color <- apply(color, 1,
                    function(x) {
                      if (x < 0) {
-                       return(0) 
-                     } else if (x > 255) { 
-                       return(255) 
-                     } else { 
-                       return(x) 
+                       return(0)
+                     } else if (x > 255) {
+                       return(255)
+                     } else {
+                       return(x)
                      }})
     color <- grDevices::rgb(t(as.matrix(color)), maxColorValue = 255)
     name <- names(color_vec)[idx]
@@ -484,8 +508,8 @@ lighten <- function(color_vec, factor = 1.4) {
 
 
 #' Convert HSL coordinates to RGB coordinates
-#' 
-#' @return r/g/b in a vector 
+#'
+#' @return r/g/b in a vector
 hsl_to_rgb <- function(h, s, l) {
   h <- h / 360
   r <- g <- b <- 0.0
@@ -511,10 +535,10 @@ hsl_to_rgb <- function(h, s, l) {
 
 
 #' Convert RGB coordinates to HSL coordinates
-#' 
+#'
 #' h = 0-360 deg, s = 0.0 - 1 (0-100%), l = 0.0 - 1 (0-100%)
-#' 
-#' @return h/s/l in a vector 
+#'
+#' @return h/s/l in a vector
 rgb_to_hsl <- function(r, g, b) {
   val_max <- max(c(r, g, b))
   val_min <- min(c(r, g, b))
@@ -534,7 +558,7 @@ rgb_to_hsl <- function(r, g, b) {
 
 
 #' Convert HSL coordinates to hexadecimal color code
-#' 
+#'
 #' @return HEX color code
 hsl_to_hex <- function(h, s, l) {
   rgb_coords <- do.call(hsl_to_rgb, list('h' = h, 's' = s, 'l' = l))
@@ -542,8 +566,8 @@ hsl_to_hex <- function(h, s, l) {
 }
 
 
-#' convert rgb coordinates to hexadecimal color code
-#' 
+#' Convert rgb coordinates to hexadecimal color code
+#'
 #' @return hex color code
 rgb_to_hex <- function(r, g, b, nf = 255) {
   do.call(rgb, as.list(c('red' = r, 'green' = g, 'blue' = b) / nf))
@@ -551,10 +575,31 @@ rgb_to_hex <- function(r, g, b, nf = 255) {
 
 
 #' Convert hex code to hexadecimal color code
-#' 
+#'
 #' @return RGB coordinates (scale: [0, 255])
 hex_to_rgb <- function(hex) {
   as.vector(col2rgb(hex))
+}
+
+
+#' Copied over from palr package
+#' 
+#' 
+hexalpha <- function (a)
+{
+    as.hexmode(round(255 * a))
+}
+
+
+#' Convert color to hex
+#' 
+#' Copied over from palr package
+#' 
+#' 
+col_to_hex <- function (x, alpha = 1)
+{
+    m <- rbind(col2rgb(x)/255, hexalpha(alpha)/255)
+    rgb(m[1, ], m[2, ], m[3, ], m[4, ])
 }
 
 
@@ -565,11 +610,52 @@ hex_to_rgb <- function(hex) {
 #'
 #' @return a vector of color names
 #' @export
-gen_color_vector <- function(name = 'Spectral', n = 30, prims = NA) {
-  pal <- gen_color_palette(name = name, n = n, prims = prims)(n)
-  # class(pal) <- c('color_vector', class(pal))
-  class(pal) <- 'color_vector'
+gen_color_vector <- function(arg = paste0('class', 1:4),
+                             name = 'Spectral', no_white = T,
+                             n = 30, prims = NA) {
+  if (is.null(arg) || all(is.na(arg))) {
+    return(NULL)
+  } else if (is.character(arg) || is.vector(arg) && 
+      !is.integer(arg) && !is.numeric(arg)) {
+    N <- length(arg)
+    class_names <- arg
+  } else if (is.integer(arg) || is.numeric(arg)) {
+    N <- arg
+    class_names <- NULL
+  } else {
+    stop('Unexpected arg')
+  }
+  
+  if (length(arg) == 0) {
+    return(NULL)
+  }
+
+  ## If the color is defined by a hex, assume we want to map a single color
+  if (!any(grepl('^#', name))) {
+    ## Interpolated between discrete colors to generate more discrete colors
+    pal <- gen_color_palette(name = name, n = n, prims = prims)(N)
+  } else {
+    if (length(name) == 1) name <- c('#FFFFFF', name)
+    ramp <- grDevices::colorRamp(name) 
+    if (no_white) {
+      pal <- ramp(seq(0, 1, length.out = N + 1))[2:(N+1), ]
+    } else {
+      pal <- ramp(seq(0, 1, length.out = N))
+    }
+    pal <- apply(pal, 1, function(r) rgb_to_hex(r[1], r[2], r[3]))
+  }
+
+  if (!is.null(class_names))
+    pal <- setNames(pal, class_names)
+
+  class(pal) <- c('color_vector', class(pal))
   return(pal)
+}
+
+
+gen_col_gradient_vector <- function(prim, N, offset_col = 'grey90') {
+  f <- circlize::colorRamp2(c(0, 1), c(offset_col, prim))
+  f(seq(1, N + 1)/(N+1))[2:(N+1)] %>% as.color_vector
 }
 
 
@@ -582,9 +668,12 @@ gen_color_vector <- function(name = 'Spectral', n = 30, prims = NA) {
 plot.color_vector <- function(color_vector) {
   old_par <- par()
   par(mar = rep(0, 4), plt = c(0, 1, 0, 1), oma = c(0, 0, 0, 0))
-  on.exit(par(old_par))
-  plot(NA, xlim = c(0, 1), ylim = c(0, length(color_vector)), axes = F,
-       xlab = '', ylab = '')
+  on.exit(suppressWarnings(par(old_par)))
+  stopifnot(is.finite(length(color_vector)))
+  plot(NA, 
+    xlim = c(0, 1), 
+    ylim = c(0, length(color_vector)), 
+    axes = F, xlab = '', ylab = '')
   for (i in 1:length(color_vector)) {
     polygon(y = c(i-1, i, i, i-1), x = c(0, 0, 1, 1), col = color_vector[i])
     if (!is.null(names(color_vector))) {
@@ -593,13 +682,20 @@ plot.color_vector <- function(color_vector) {
   }
   invisible()
 }
-# color_vector.plot <- function(x) plot_palette(x)
-is.color_vector <- function(x) inherits(x, "color_vector")
+# test_cols <- maartenutils::gen_color_vector(as.character(1:4))
+# plot(test_cols)
 # length.color_vector <- function(x) length(x)
 # `%[%`.color_vector <- function(x, idx) x[idx]
 # `[.color_vector` <- function(x, idx) x[idx]
 # `c.color_vector` <- function(...) c(...)
 # rev.color.vector <- function(x) x[length(x):1]
+
+is.color_vector <- function(x) inherits(x, "color_vector")
+
+as.color_vector <- function(v) {
+  stopifnot(is.vector(v))
+  v %>% attr_pass('class', 'color_vector')
+}
 
 
 #' Interpolate between color palettes
@@ -610,28 +706,28 @@ gen_color_palette <- function(name = 'Set1', n = 30L, prims = NA) {
   # devtools::install_github('karthik/wesanderson')
   palette_prims <- c('Set1' = 5L, 'Dark1' = 8L, 'Dark2' = 8L, 'Spectral' = 6L,
                      'Greys' = 9L,
-                     'GrandBudapest' = 4, 
+                     'GrandBudapest' = 4,
                      'GrandBudapest1' = 4,
-                     'GrandBudapest2' = 4, 
-                     'Moonrise1' = 4, 'Moonrise2' = 4, 'Moonrise3' = 4, 
-                     'BottleRocket' = 4, 
-                     'BottleRocket1' = 4, 
+                     'GrandBudapest2' = 4,
+                     'Moonrise1' = 4, 'Moonrise2' = 4, 'Moonrise3' = 4,
+                     'BottleRocket' = 4,
+                     'BottleRocket1' = 4,
                      'Chevalier' = 4,
                      'Chevalier1' = 4,
-                     'FantasticFox' = 5L, 
-                     'FantasticFox1' = 5L, 
-                     'Zissou' = 5L, 
-                     'Zissou1' = 5L, 
+                     'FantasticFox' = 5L,
+                     'FantasticFox1' = 5L,
+                     'Zissou' = 5L,
+                     'Zissou1' = 5L,
                      'Cavalcanti' = 5L,
                      'Cavalcanti1' = 5L,
-                     'Royal1' = 4L, 
+                     'Royal1' = 4L,
                      'Darjeeling1' = 5L,
                      'Darjeeling' = 5L)
   name <- match.arg(name, names(palette_prims))
 
   available_prims <- palette_prims[name]
   if (is.na(prims)) {
-    prims <- available_prims
+    prims <- min(available_prims, n)
   } else {
     ## Ensure we're not asking too many prims and cause an error
     prims <- min(prims, available_prims)
@@ -644,13 +740,8 @@ gen_color_palette <- function(name = 'Set1', n = 30L, prims = NA) {
     pal <- wesanderson::wes_palette(name = name, n = prims,
                                     type = 'discrete')
   }
-
   ramp <- colorRampPalette(pal, alpha = TRUE)
   return(ramp)
-}
-
-
-color_palette <- function(cols) {
 }
 
 
@@ -669,10 +760,10 @@ adjust_colors <- function(cols, sat=1, brightness = 1.2) {
 #'
 #' In order to tighly pack panels (facets) without getting overlapping labels
 internal_breaks <- function (n = 5, left_i = 1, right_i = 1, ...) {
-    function(x) {
-				scale_labels <- scales::extended_breaks(n = n, ...)(x)
-				return(scale_labels[1+left_i:(n-right_i)])
-    }
+  function(x) {
+    scale_labels <- scales::extended_breaks(n = n, ...)(x)
+    return(scale_labels[1+left_i:(n-right_i)])
+  }
 }
 
 
@@ -714,19 +805,19 @@ interpolate_in_gg_range <- function(plot, axis = 'x', degree = .1) {
   interpolate_in_range(get_ggplot_range(plot, axis = axis), degree = degree)
 }
 
-remove_x <- 
-  ggplot2::theme(axis.title.x = ggplot2::element_blank(), 
+remove_x <-
+  ggplot2::theme(axis.title.x = ggplot2::element_blank(),
                  axis.text.x = ggplot2::element_blank(),
                  axis.ticks.x = ggplot2::element_blank())
 
-remove_y <- 
-  ggplot2::theme(axis.title.y = ggplot2::element_blank(), 
+remove_y <-
+  ggplot2::theme(axis.title.y = ggplot2::element_blank(),
                  axis.text.y = ggplot2::element_blank(),
                  axis.ticks.y = ggplot2::element_blank())
 
-remove_strip <- 
-  ggplot2::theme(strip.text = ggplot2::element_blank() , 
-                 strip.background = ggplot2::element_blank(), 
+remove_strip <-
+  ggplot2::theme(strip.text = ggplot2::element_blank() ,
+                 strip.background = ggplot2::element_blank(),
                  plot.margin = grid::unit(c(0, 0, 0, 0), units = 'lines'))
 
 remove_legend <- ggplot2::theme(legend.position = 'none')
@@ -752,11 +843,11 @@ transparent_plot <- ggplot2::theme(
 var_to_label <- function(p_var, reps = NULL, cap_first_word_only = T) {
   if (!is.null(reps)) {
     ## Match each p_var to most similar
-    p_var <- vapply(p_var, 
+    p_var <- vapply(p_var,
       function(l_var) {
-        matching <- tryCatch(match.arg(l_var, choices = names(reps), 
-                              several.ok = F), 
-                             error = function(e) { return(NULL) }) 
+        matching <- tryCatch(match.arg(l_var, choices = names(reps),
+                              several.ok = F),
+                             error = function(e) { return(NULL) })
         if (is.null(matching) || matching == '') {
           ret_val <- l_var
         } else {
@@ -785,16 +876,16 @@ plot_scatter_cor <- function(x_var = 'adaptive_t_cells',
 
   axis_labeller <- axis_labeller %||% identity
 
-  p <- ggplot(dtf, aes_string(x = x_var, y = y_var)) + 
-    geom_point(alpha = point_alpha) + 
+  p <- ggplot(dtf, aes_string(x = x_var, y = y_var)) +
+    geom_point(alpha = point_alpha) +
     scale_x_continuous(name = axis_labeller(x_var), expand = c(0, 0)) +
     scale_y_continuous(name = axis_labeller(y_var), expand = c(0, 0)) +
     theme(aspect.ratio = 1)
 
   if (!is.null(outlier_label_var)) {
-    outlier_dat <- 
+    outlier_dat <-
       dtf[detect_outliers(get(x_var)) | detect_outliers(get(y_var))]
-    p <- p + ggrepel::geom_label_repel(data = outlier_dat, 
+    p <- p + ggrepel::geom_label_repel(data = outlier_dat,
       aes_string(label = outlier_label_var))
   }
 
@@ -814,8 +905,8 @@ plot_scatter_cor <- function(x_var = 'adaptive_t_cells',
     }
     corr <- dtf[, cor(get(x_var), get(y_var), use = 'pairwise.complete.obs')]
 
-    p <- p + ggplot2::annotate('text', x = ann_x, y = ann_y, 
-                               label = sprintf("italic(r)==%.3f", corr), 
+    p <- p + ggplot2::annotate('text', x = ann_x, y = ann_y,
+                               label = sprintf("italic(r)==%.3f", corr),
                                parse = TRUE, vjust = vjust, hjust = hjust)
   }
   return(p)
@@ -840,34 +931,34 @@ plot_pairwise_relationships <- function(dtf = rna_sample_annotation,
                                         y_var_trans = identity,
                                         var_labeller = identity,
                                         blacklist_vars = c(),
-                                        filename = sprintf('%s_correlates.pdf', 
+                                        filename = sprintf('%s_correlates.pdf',
                                                            y_var),
-                                        nrow = 5, 
+                                        nrow = 5,
                                         ncol = 3) {
   setDT(dtf)
   dtf[, (y_var) := y_var_trans(get(y_var))]
 
-  factor_plots <- 
-    dtf[, lapply(.SD, 
-                 function(x) is.factor(x) || is.logical(x) || 
+  factor_plots <-
+    dtf[, lapply(.SD,
+                 function(x) is.factor(x) || is.logical(x) ||
                    is.character(x))] %>%
-    unlist %>% 
+    unlist %>%
     { .[. == T] } %>%
     names %>%
     { dtf[, lapply(.SD, function(x) uniqueN(x) > 1), .SDcols = .] } %>%
-    unlist %>% 
+    unlist %>%
     { .[. == T] } %>%
     names %>%
     setdiff(c(y_var, blacklist_vars)) %>%
     auto_name %>%
     purrr::map(function(x_var) {
-      tryCatch(ggplot(data = dtf, aes_string(x = x_var, y = y_var)) + 
-                 geom_boxplot() + 
-                 ggpubr::stat_compare_means() + 
-                 xlab(var_labeller(x_var)) + 
+      tryCatch(ggplot(data = dtf, aes_string(x = x_var, y = y_var)) +
+                 geom_boxplot() +
+                 ggpubr::stat_compare_means() +
+                 xlab(var_labeller(x_var)) +
                  ylab(var_labeller(y_var)) +
-                 ggplot2::theme(text = element_text(size = 6)), 
-               error = function(e) { print(e); return(NULL) }) 
+                 ggplot2::theme(text = element_text(size = 6)),
+               error = function(e) { print(e); return(NULL) })
     })
 
   numerical_plots <- dtf[, lapply(.SD, is.numeric)] %>%
@@ -884,7 +975,7 @@ plot_pairwise_relationships <- function(dtf = rna_sample_annotation,
 
 
   ## Order plots according to col order in original data.frame
-  intersect(colnames(dtf), 
+  intersect(colnames(dtf),
             c(names(factor_plots), names(numerical_plots))) %>%
     { c(factor_plots, numerical_plots)[.] } %>%
     { plot_panel_layout(., filename = filename, nrow = nrow, ncol = ncol,
@@ -893,3 +984,48 @@ plot_pairwise_relationships <- function(dtf = rna_sample_annotation,
   invisible()
 }
 
+
+#' Test whether we're in interactive R or rendering rmarkdown
+#'
+#'
+test_rendering <- function() {
+  !is.null(knitr::opts_knit$get('rmarkdown.pandoc.to'))
+}
+
+
+#' Convenience function to be used in Rmarkdown notebooks
+#'
+#'
+print_plot <- function(p, fn = 'tmp.png', w = 8, h = 8) {
+  if (test_rendering()) {
+    print(p)
+  } else {
+    eval_plot({ print(p) }, fn = fn, w = w, h = h) 
+  }
+}
+
+
+#' When X11 is not working, use this to visualize intermediate results when
+#' working in terminal (which is 99% of the time for me)
+#'
+#'
+eval_plot <- function(code, fn = 'tmp.png', w = 8, h = 8) {
+  png(fn, width = w, height = h, units = 'cm', res = 600)
+  eval(rlang::expr(code))
+  dev.off()
+}
+
+
+test_plot <- function(code, w = 8, h = 8) {
+  eval_plot(code, fn = 'tmp.png', w = w, h = h)
+}
+
+
+#' Kill all currently opened plotting windows
+#'
+#'
+reset_plotting_device <- function() {
+  while (length(dev.list()) > 0) {
+    dev.off()
+  }
+}
