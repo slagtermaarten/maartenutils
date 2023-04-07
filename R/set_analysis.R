@@ -1,3 +1,19 @@
+#' Generate a matrix indicating set membership for a list of sets
+#'
+#' @param out matrix with one row for each unique object in all sets
+#' and one column for each of the input sets
+gen_overlap_matrix <- function(
+  sets = list(s1 = c('A', 'B'), s2 = c('C', 'A', 'D'))) {
+  all_entries <- naturalsort::naturalsort(purrr::reduce(sets, union))
+  out <- purrr::map_dfr(sets, ~all_entries %in% .x) %>%
+    as.matrix
+  rownames(out) <- all_entries
+  colnames(out) <- names(sets)
+  out
+}
+# overlap_analysis(gen_overlap_matrix(), method = 'corroboration')
+
+
 #' Compute Jaccard indices for matrix of booleans
 #'
 #' @param m logical matrix. If something else is supplied, coercion will be

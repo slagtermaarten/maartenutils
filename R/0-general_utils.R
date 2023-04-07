@@ -719,7 +719,8 @@ gen_time_comparator <- function(minimum_mod_time = "2019-09-24 11:17:29 CEST",
           sprintf(', mod time: %s', file.mtime(fn)) 
         }
         mymessage(instance = 'time_comparator', 
-                  msg = sprintf('%s %s computation%s', basename(fn), 
+                  msg = sprintf('%s %s computation%s', 
+                                basename(fn), 
                                 ifelse(ret_val, 'needs', 'does NOT need'),
                                 mod_time_str))
       }
@@ -820,6 +821,24 @@ prepend_string <- function(arg_vec, prepend_string = '-') {
 prepend_hyphen <- function(arg_vec) {
   prepend_string(arg_vec, prepend_string = '-')
 }
+
+
+append_string <- function(arg_vec, string = '.') {
+  if (is.null(arg_vec)) return('')
+  vapply(arg_vec, function(arg) {
+    arg <- as.character(arg)
+    if (!is.null(arg) && !is.na(arg) && arg != '' && !grepl('^-', arg) && 
+        tolower(arg) != 'none') {
+      arg <- paste0(arg, string)
+    } else if (is.null(arg) || arg == 'NA' || 
+               is.na(arg) || tolower(arg) == 'none') {
+      arg <- ''
+    }
+    return(arg)
+  }, character(1))
+}
+
+
 repl.na <- replace.na.gen(F)
 r0 <- replace.na.gen(0)
 repl.na.0 <- replace.na.gen(0)
@@ -890,14 +909,13 @@ replace_null <- function(v, rep_value = 'none') {
 }
 
 
-make_flag <- function(varname) {
-  if (is.null(varname) || is.na(varname) ||
-      (is.logical(varname) && varname == F)) {
-    flag <- ''
-  } else {
-    value <- replace_null(varname)
-    flag <- stringr::str_c('-', deparse(substitute(varname)), '=', value)
-  }
-  return(flag)
+ceiling_decimal <- function(x, dec) {
+  ceiling(x * 10^dec) / 10^dec
 }
-a = 5; stopifnot(make_flag(a) == '-a=5'); rm(a)
+round_up <- ceiling_decimal
+
+
+floor_decimal <- function(x, dec) {
+  floor(x * 10^dec) / 10^dec
+}
+round_down <- floor_decimal

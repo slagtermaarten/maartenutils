@@ -435,7 +435,8 @@ plot_panel_layout <- function(plots,
       ## Default back up file name
       filename_split <- strsplit(filename, '\\.')[[1]]
       ext <- filename_split[-1]
-      filename_main <- paste(filename_split[1:(length(filename_split)-1)], 
+      filename_main <- 
+        paste(filename_split[1:(length(filename_split)-1)], 
           collapse = '')
       idx <- 2
       new_fn <- paste0(filename_main, '_v', idx, '.', ext)
@@ -449,6 +450,47 @@ plot_panel_layout <- function(plots,
     ggplot2::ggsave(plot = p, filename = filename, 
       # useDingbats = F,
       limitsize = F, width = width, height = height, units = 'cm')
+  }
+
+  if (plot_direct) {
+    return(p)
+  } else {
+    return(invisible(filename))
+  }
+}
+
+
+
+#' Plot panel off patchworks across multiple pages
+#'
+#' @export
+multi_page_patchwork <- function(plots,
+                                 offs = grid::unit(.35, 'cm'),
+                                 filename = NULL,
+                                 plot_direct = F,
+                                 nrow = 2,
+                                 ncol = 1,
+                                 w = 17.4, h = 25,
+                                 width = w, height = h) {
+  stopifnot(!is.null(filename))
+  stopifnot(grepl('.pdf$', filename))
+
+  plots <- plots[!sapply(plots, is.null)]
+  N_plots <- length(plots)
+  N_ppp <- nrow * ncol
+  N_pages <- ceiling(length(plots) / N_ppp)
+
+  if (!is.null(filename)) {
+    pdf(filename, width = width/2.54, height = height/2.54)
+    for (cp in 1:N_pages) {
+      idxs <- ((cp-1)*N_ppp+1):min(cp*N_ppp, N_plots)
+      plots[idxs] %>%
+        wrap_plots(ncol = ncol, nrow = nrow) %>%
+        print()
+    }
+    dev.off()
+  } else {
+    message('Nothing will happen, direct plotting not implemented yet')
   }
 
   if (plot_direct) {
@@ -478,14 +520,14 @@ darken <- function(color_vec, factor = 1.4) {
     color <- grDevices::col2rgb(color)
     color <- color / factor[idx]
     color <- apply(color, 1,
-                   function(x) {
-                     if (x < 0) {
-                       return(0)
-                     } else if (x > 255) {
-                       return(255)
-                     } else {
-                       return(x)
-                     }})
+     function(x) {
+       if (x < 0) {
+         return(0)
+       } else if (x > 255) {
+         return(255)
+       } else {
+         return(x)
+       }})
     color <- grDevices::rgb(t(as.matrix(color)), maxColorValue = 255)
     name <- names(color_vec)[idx]
     if (is.null(name) || is.na(name)) {
@@ -863,20 +905,26 @@ var_to_label <- function(p_var, reps = NULL, cap_first_word_only = T) {
 #' Generic scatter plot code that shows correlation coefficient by default
 #'
 #'
-plot_scatter_cor <- function(x_var = 'adaptive_t_cells',
+plot_scatter_cor <- function(
+  x_var = 'adaptive_t_cells',
   y_var = 'rna_t_cell',
+  colour_var = NULL,
+  shape_var = NULL,
   trans = identity,
   dtf = patient_labels_tmp,
   cor_method = 'spearman',
   point_alpha = .8,
+  label_size = 2,
+  cor_size = 2,
   axis_labeller = NULL,
   outlier_label_var = NULL,
-  position = 'topleft') {
+  cor_position = 'topleft') {
   setDT(dtf)
 
   axis_labeller <- axis_labeller %||% identity
 
-  p <- ggplot(dtf, aes_string(x = x_var, y = y_var)) +
+  p <- ggplot(dtf, aes_string(x = x_var, y = y_var, 
+      colour = colour_var, shape = shape_var)) +
     geom_point(alpha = point_alpha) +
     scale_x_continuous(name = axis_labeller(x_var), expand = c(0, 0)) +
     scale_y_continuous(name = axis_labeller(y_var), expand = c(0, 0)) +
@@ -886,16 +934,16 @@ plot_scatter_cor <- function(x_var = 'adaptive_t_cells',
     outlier_dat <-
       dtf[detect_outliers(get(x_var)) | detect_outliers(get(y_var))]
     p <- p + ggrepel::geom_label_repel(data = outlier_dat,
-      aes_string(label = outlier_label_var))
+      aes_string(label = outlier_label_var), size = label_size)
   }
 
   if (!is.null(cor_method)) {
-    if (position == 'topleft') {
+    if (cor_position == 'topleft') {
       ann_x <- interpolate_in_gg_range(p, axis = 'x', degree = .05)
       ann_y <- interpolate_in_gg_range(p, axis = 'y', degree = .95)
       vjust <- 1
       hjust <- 0
-    } else if (position == 'bottomright') {
+    } else if (cor_position == 'bottomright') {
       ann_x <- interpolate_in_gg_range(p, axis = 'x', degree = .95)
       ann_y <- interpolate_in_gg_range(p, axis = 'y', degree = .05)
       vjust <- 0
@@ -903,10 +951,12 @@ plot_scatter_cor <- function(x_var = 'adaptive_t_cells',
     } else {
       stop('Not implemented')
     }
-    corr <- dtf[, cor(get(x_var), get(y_var), use = 'pairwise.complete.obs')]
+    corr <- dtf[, cor(get(x_var), get(y_var), 
+      use = 'pairwise.complete.obs')]
 
     p <- p + ggplot2::annotate('text', x = ann_x, y = ann_y,
                                label = sprintf("italic(r)==%.3f", corr),
+                               size = cor_size,
                                parse = TRUE, vjust = vjust, hjust = hjust)
   }
   return(p)
@@ -993,32 +1043,37 @@ test_rendering <- function() {
 }
 
 
-#' Convenience function to be used in Rmarkdown notebooks
-#'
-#'
-print_plot <- function(p, fn = 'tmp.png', w = 8, h = 8) {
-  if (test_rendering()) {
-    print(p)
-  } else {
-    eval_plot({ print(p) }, fn = fn, w = w, h = h) 
-  }
-}
+##' Convenience function to be used in Rmarkdown notebooks
+##'
+##'
+#print_plot <- function(p, fn = 'tmp.png', w = 8, h = 8) {
+#  if ('ggplot' %in% class(p)) {
+#    method <- 'print'
+#  } else if ('gtable' %in% class(p)) {
+#    method <- 'plot'
+#  }
+#  if (test_rendering()) {
+#    get(method)(p)
+#  } else {
+#    eval_plot({ get(method)(p) }, fn = fn, w = w, h = h) 
+#  }
+#}
 
 
-#' When X11 is not working, use this to visualize intermediate results when
-#' working in terminal (which is 99% of the time for me)
-#'
-#'
-eval_plot <- function(code, fn = 'tmp.png', w = 8, h = 8) {
-  png(fn, width = w, height = h, units = 'cm', res = 600)
-  eval(rlang::expr(code))
-  dev.off()
-}
+##' When X11 is not working, use this to visualize intermediate results when
+##' working in terminal (which is 99% of the time for me)
+##'
+##'
+#eval_plot <- function(code, fn = 'tmp.png', w = 8, h = 8) {
+#  png(fn, width = w, height = h, units = 'cm', res = 600)
+#  eval(rlang::expr(code))
+#  dev.off()
+#}
 
 
-test_plot <- function(code, w = 8, h = 8) {
-  eval_plot(code, fn = 'tmp.png', w = w, h = h)
-}
+# test_plot <- function(code, w = 8, h = 8) {
+#   eval_plot(code, fn = 'tmp.png', w = w, h = h)
+# }
 
 
 #' Kill all currently opened plotting windows
@@ -1027,5 +1082,39 @@ test_plot <- function(code, w = 8, h = 8) {
 reset_plotting_device <- function() {
   while (length(dev.list()) > 0) {
     dev.off()
+  }
+}
+
+
+#' Adaptation of ggplot2::ggsave to not just handle grid
+#' objects/ggplots but any code writing graphics to a plotting device
+#'
+#'
+print_plot_eval <- function(call, filename,
+  height = 10, width = 12,
+  units = c('cm', 'in', 'mm', 'px'), limitsize = TRUE,
+  device = NULL, bg = 'white', scale = 1, dpi = 300,
+  force_file = getOption('plot_force_file', default = F), 
+  ...) {
+  call <- rlang::enquo(call)
+  if (!maartenutils::test_rendering() || force_file) {
+    stopifnot(!is.null(filename) && !is.na(filename))
+    dpi <- ggplot2:::parse_dpi(dpi)
+    dev <- ggplot2:::plot_dev(device, filename, dpi = dpi)
+    units <- match.arg(units, c('cm', 'in', 'mm', 'px'))
+    dim <- ggplot2:::plot_dim(c(width, height),
+      scale = scale, units = units, limitsize = limitsize, dpi = dpi)
+    old_dev <- grDevices::dev.cur()
+    dev(filename = filename, width = dim[1], height = dim[2],
+      bg = bg, ...)
+    on.exit(utils::capture.output({
+      grDevices::dev.off()
+      if (old_dev > 1) grDevices::dev.set(old_dev)
+    }))
+    rlang::eval_tidy(call)
+    return(invisible(filename))
+  } else {
+    # grid.newpage()
+    rlang::eval_tidy(call)
   }
 }

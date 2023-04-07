@@ -23,17 +23,17 @@ simple_cap <- function(x, split_regex = ' |_|,',
     w[w_g] <- toupper(w[w_g])
 
     ## Replace with predefined symbols
-    w_m <- match(tolower(w), tolower(caplist))
+    w_m <- match(tolower(w), tolower(caplist), nomatch = NULL)
     for (idx in which(!is.na(w_m))) {
       w[idx] <- caplist[w_m[idx]]
     }
 
     ## Capitalize first letter of the words which have not been manually
     ## adjusted
-    cap_words_idx <- setdiff(seq_along(w), which(!is.na(w_m)))
-
+    cap_words_idx <- setdiff(seq_along(w), which(!is.na(w_m) & !w_g))
     if (cap_first_word_only) {
-      cap_words_idx <- setdiff(cap_words_idx, seq(2, length(cap_words_idx)))
+      cap_words_idx <- setdiff(cap_words_idx, 
+        seq(2, max(2, length(w))))
     }
 
     for (idx in cap_words_idx) {
@@ -43,8 +43,9 @@ simple_cap <- function(x, split_regex = ' |_|,',
     return(paste(w, collapse=' '))
   })
 }
-stopifnot(simple_cap('mtorc1 kras Kras1,Pam50') == 'mTORC1 KRAS KRAS1 PAM50')
-# simple_cap('homo sapiens in laudanum erat')
+# stopifnot(simple_cap('mtorc1 kras Kras1,Pam50') == 'mTORC1 KRAS KRAS1 PAM50')
+# simple_cap('adipogenesis', cap_first_word_only = T)
+# simple_cap('homo sapiens in laudanum erat', cap_first_word_only = T)
 # simple_cap('in horto sedent')
 
 
@@ -75,19 +76,23 @@ index_duplicates <- function(vec = c(1, 2, 2, 3)) {
 stopifnot(sum(duplicated(index_duplicates())) == 0)
 
 
-#' Fancy scientific string formatting of exponents
+#' 'Fancy' scientific string formatting of exponents
 #'
-#' Returns a string in plotmath format
+#' Returns a string in plotmath format or expression object
 #'
-fancy_scientific <- function(l, digits = 3) {
+fancy_scientific <- function(l, digits = 3, parse = F) {
   if (is.null(l)) return(NULL)
   l <- signif(l, digits = digits)
-  ret_val <- sapply(l, function(li) {
+  ret_val <- lapply(l, function(li) {
     if (is.null(li)) return(NULL)
     if (any(is.na(li))) return(NA)
     ## We don't need scientific notation for numbers between .1 and 10
     if (abs(as.numeric(li)) > .1 && abs(as.numeric(li)) <= 10) {
-      return(as.expression(li))
+      if (parse) {
+        return(as.expression(li))
+      } else {
+        return(li)
+      }
     }
     ## Turn in to character string in scientific notation
     li <- format(li, scientific = TRUE)
@@ -105,13 +110,23 @@ fancy_scientific <- function(l, digits = 3) {
     l_e <- gsub('%\\*%(.*)\\^\\+00', '', l_e)
     l_e <- gsub('\\^\\+(\\d+)', '^\\1', l_e)
     l_e <- gsub('\\^\\{\\+0*(\\d+)\\}', '^\\1', l_e)
+    # l_e <- gsub('\\^\\{\\-0*(\\d+)\\}', '^\\1', l_e)
     ## Try and get rid of new lines
     l_e <- gsub('\n', '', l_e)
     l_e <- gsub(' ', '', l_e)
     ## Return this as an expression
-    parse(text=l_e)
+    if (parse) {
+      return(parse(text=l_e))
+    } else {
+      return(l_e)
+    }
   })
   return(ret_val)
+}
+
+
+fancy_p <- function(v) {
+  purrr::map(fancy_scientific(v), ~glue::glue('italic(p)=={.x}'))
 }
 
 
@@ -127,4 +142,82 @@ format_flag <- function(val, name) {
   if (is.character(val))
     val <- variabilize_character(val)
   return(glue::glue('-{name}={val}'))
+}
+
+
+
+#' Compute SEM and CI of the mean
+#'
+#'
+std_error <- function(x, ...) sd(x, ...) / sqrt(sum(!is.na(x)))
+mean_CI <- function(x, Z = 1.96, ...) {
+  rep(mean(x, na.rm = T, ...), 3) +
+    c(-Z * std_error(x, na.rm = T, ...), 0, 
+      Z * std_error(x, na.rm = T, ...)) %>%
+  set_names(c('CI_l', 'mean', 'CI_h'))
+}
+
+
+print.mean_CI <- function(x, percentage = F, Z = 1.96, round = 2, ...) {
+  res <- mean_CI(x, Z = Z, ...)
+  if (percentage) {
+    res <- scales::percent(res, accuracy = 10^(-1 * round))
+  } else {
+    if (!is.na(round) && is.numeric(round) || is.integer(round)) {
+      res <- round(res, digits = round)
+    }
+  }
+  ## Compute the size of the CI from the Z-value
+  CI_perc <- 2 * pnorm(Z) - 1
+  sprintf('%s (%s CI: [%s, %s])',
+          res[2], scales::percent(CI_perc), res[1], res[3])
+}
+
+
+print.median_range <- function(x, percentage = F, round = 2,
+                               lower_bound = 0, upper_bound = 1,
+                               na.rm = T, ...) {
+  stopifnot(lower_bound >= 0 && lower_bound < 1)
+  stopifnot(upper_bound > 0 && upper_bound <= 1)
+  res <- quantile(x, probs = c(lower_bound, .5, upper_bound), na.rm = T)
+  if (percentage) {
+    res <- scales::percent(res, round = 10^(-1 * round))
+  } else {
+    if (!is.na(round) && is.numeric(round) || is.integer(round)) {
+      res <- round(res, digits = round)
+    }
+  }
+  res <- as.character(res)
+  if (lower_bound == 0 && upper_bound == 1) {
+    return(sprintf('%s (range: [%s, %s])', res[2], res[1], res[3]))
+  } else {
+    return(sprintf('%s (%dth %%ile: %s, %dth %%ile: %s)',
+                   res[2],
+                   round(100 * lower_bound), res[1],
+                   round(100 * upper_bound), res[3]))
+  }
+}
+# print.median_range(rnorm(10, 1, 2), percentage = F, round = 2,
+#                    lower_bound = .1, upper_bound = .9, na.rm = T)
+
+
+extract_var_from_string <- function(char, var) {
+  if (grepl(var, char)) {
+    res <- gsub(sprintf('^.*%s=(.*)', var), '\\1', char)
+    res <- gsub('-.*$', '', res)
+    res <- infer_class(res)
+  } else {
+    res <- NA
+  }
+  return(res)
+}
+
+
+infer_class <- function(char) {
+  stopifnot(is.character(char) || is.na(as.character(char)))
+  char <- as.character(char)
+  if (suppressWarnings(!is.na(as.numeric(char)))) {
+    char <- as.numeric(char)
+  }
+  return(char)
 }

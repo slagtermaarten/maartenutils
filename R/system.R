@@ -84,13 +84,13 @@ inventorise_partial_files <- function(full_fn, prefix = '') {
   file_pattern <- sprintf('^%s%s-\\d+\\.\\w+', prefix,
                           gsub('\\.rds$', '', basename(full_fn)))
   files_root <- dirname(full_fn)
-  listed_files <- list.files(files_root, pattern = file_pattern)
+  listed_files <- list.files(files_root, pattern = file_pattern) %>%
+    naturalsort::naturalsort(.)
   if (length(listed_files) == 0) {
     warningf('No partial files found for: %s', full_fn)
     return(NULL)
   }
   dtf <- listed_files %>%
-    { naturalsort::naturalsort(.) } %>%
     { .[!sapply(., function(x) is.null(x)) & !is.na(.)] } %>%
     {
       data.table(
@@ -157,15 +157,20 @@ mail_notify <- function(subject = 'run_LOHHLA_partial', msg = 'tst',
 #' Create overview of filenames and modification times
 #'
 #'
-gen_file_overview <- function(dir, pat = '*', include_full = F) {
+gen_file_overview <- function(dir, pat = '*', include_full = F,
+  add_md5 = F) {
   overview <- list.files(dir, pat, full.names = F) %>%
     { data.table(short_fn = ., full_fn = file.path(dir, .)) } %>%
     .[, mtime := file.mtime(full_fn)] %>%
+    .[, disk_size := file.size(full_fn)] %>%
     .[rev(order(mtime))]
+  if (add_md5) {
+    overview[, md5 := tools::md5sum(full_fn)]
+  }
   if (!include_full) {
     overview[, full_fn := NULL]
   }
-  return(as.tibble(overview))
+  return(as_tibble(overview))
 }
 
 

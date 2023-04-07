@@ -34,16 +34,16 @@ prefilter_correlation_data <- function(dtf, epsilon = 1e-5) {
 #'
 #' @param x Numeric vector
 coef_variation <- function(x) {
-  if (is.null(x) || length(x) == 0 || all(is.na(x))) {
+  if (is.null(x) || length(x) <= 1 || all(is.na(x))) {
     return(NA_real_)
   }
-
-  std_dev <- sqrt(var(x, na.rm = T)) 
+  std_dev <- sd(x, na.rm = T)
   X_bar <- mean(x, na.rm = T)
-
-  if (eps(X_bar, 0)) {
+  # if (is.na(std_dev)) browser()
+  if (eps(std_dev, 0, eps = 1e-23)) {
     return(0)
   } else {
+    # return(exp(log(std_dev) - log(X_bar)))
     return(std_dev / X_bar)
   }
 }

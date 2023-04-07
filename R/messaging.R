@@ -4,13 +4,12 @@
 mymessage <- function(msg = '', 
   instance = as.character(dplyr::nth(sys.calls(), -2))[[1]],
   f = message, ...) {
-
   nodename <- Sys.info()[['nodename']]
   if (is.null(instance) || is.na(instance)) instance <- ''
-  long_msg <- sprintf('%s %s %s %s',
-                      stringr::str_pad(string = instance, width = 20,
-                                       pad = ' ', side = 'right'),
-                      nodename, Sys.time(), msg)
+  # instance <- 
+  #   stringr::str_pad(string = instance, width = 20, pad = ' ', side = 'right')
+  long_msg <- crayon::silver(sprintf('%s | %s | %s\n', Sys.time(), 
+                                     instance, msg))
   f(long_msg, ...)
 }
 

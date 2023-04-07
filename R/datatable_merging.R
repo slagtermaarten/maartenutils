@@ -70,8 +70,8 @@ controlled_merge <- function(f_dtf,
   a_types <- unlist(a_dtf[, lapply(.SD, class), .SDcols = by_cols])
   f_types <- unlist(f_dtf[, lapply(.SD, class), .SDcols = by_cols])
 
-  ## Mismatches when one of the two columns are character are harmless, coercion
-  ## happens correctly
+  ## Mismatches when one of the two columns are character are
+  ## harmless, coercion happens correctly
   char_types <- (a_types == 'character' | f_types == 'character')
 
   if (!all(a_types[!char_types] == f_types[!char_types])) {
@@ -85,8 +85,8 @@ controlled_merge <- function(f_dtf,
               f = stop)
   }
 
-  ## Merging on factors can be problematic when the levels aren't explicitly
-  ## defined by the user
+  ## Merging on factors can be problematic when the levels aren't
+  ## explicitly defined by the user
   ## Merge cols are of same type so we only have to test one
   if (any(a_types == 'factor') || any(f_types == 'factor')) {
     if (F) {
@@ -104,16 +104,17 @@ controlled_merge <- function(f_dtf,
   }
 
   ## Merge source and annotation df
-  dtf_merged <- tryCatch(merge(f_dtf, unique(a_dtf, by = by_cols),
-                               all.x = all.x,
-                               all.y = all.y,
-                               by = by_cols,
-                               allow.cartesian = cartesian),
-                         error = function(e) {
-                           print(e)
-                           browser()
-                           intersect(colnames(dtf_merged), colnames(a_dtf))
-                         })
+  dtf_merged <- tryCatch(
+    merge(f_dtf, unique(a_dtf, by = by_cols),
+      all.x = all.x,
+      all.y = all.y,
+      by = by_cols,
+      allow.cartesian = cartesian),
+    error = function(e) {
+      print(e)
+      browser()
+      intersect(colnames(dtf_merged), colnames(a_dtf))
+    })
 
   ## Check column count and names
   if (check_merge_dups(dtf_merged)) {
@@ -252,7 +253,8 @@ partition_dtf <- function(dtf, partition_vars = c(), min_size = 1) {
       function(pv) {
       dtf[, c(NA, unique(get(pv)))]
     })
-    partition_vars <- partition_vars[sapply(partition_levs, length) > 2]
+    partition_vars <- 
+      partition_vars[sapply(partition_levs, length) > 2]
     partition_vars_all_combs <- expand.grid(partition_levs)
 
     ## Create filtered objects
